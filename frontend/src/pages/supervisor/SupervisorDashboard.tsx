@@ -1,13 +1,18 @@
 // src/supervisor/SupervisorDashboard.tsx
 import { useEffect, useState } from "react";
-import { useAuth } from "../AuthProvider";
-import { CalendarCheck, Users, Calendar1 } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
+import { useNavigate } from "react-router-dom";
+import { CalendarCheck, Users, Calendar1, FileText, ArrowRight } from "lucide-react";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 export default function SupervisorDashboard() {
-  const { user, token } = useAuth(); // token optional depending on your provider
-  const toast = useToast().toast;
+  const { user, token, hasRole } = useAuthStore(); 
+  const navigate = useNavigate();
+  const isFacultyRep = hasRole(Role.FACULTY_PG_REP);
+  const { toast } = useToast();
   const userName = user?.userName || "User";
 
   const [assignedStudentsCount, setAssignedStudentsCount] = useState<
@@ -97,9 +102,22 @@ export default function SupervisorDashboard() {
 
   return (
     <div className="space-y-6 px-4 sm:px-6">
-      <h1 className="text-2xl font-bold text-gray-800 capitalize">
-        Welcome back, {userName}
-      </h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl font-bold text-gray-800 capitalize">
+          Welcome back, {userName}
+        </h1>
+        
+        {isFacultyRep && (
+          <Button 
+            onClick={() => navigate("/supervisor/faculty-score-sheets")}
+            className="bg-amber-700 hover:bg-amber-600 text-white flex items-center gap-2 shadow-md transition-all active:scale-95 group"
+          >
+            <FileText size={18} />
+            <span>Score Sheets</span>
+            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+          </Button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {/* Assigned Students */}

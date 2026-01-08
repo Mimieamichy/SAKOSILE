@@ -1,6 +1,7 @@
 // DefenseDayPage.tsx
-import React, { useState, useEffect } from "react";
-import { useAuth } from "./AuthProvider";
+import React, { useState, useEffect, useCallback } from "react";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 import { Button } from "@/components/ui/button";
 import ScoreSheetPanel from "./ScoreSheetDefense";
 import StudentsPanel from "./StudentsPanel";
@@ -15,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 
 import { useToast } from "@/hooks/use-toast";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { cn } from "@/lib/utils";
 
 type Level = "MSC" | "PHD";
 
@@ -94,7 +97,7 @@ interface DefenseDay {
 const baseUrl = import.meta.env.VITE_BACKEND_URL ?? "";
 
 export default function DefenseDayPage() {
-  const { user, token, roles, } = useAuth();
+  const { user, token, hasRole } = useAuthStore();
   const { toast } = useToast();
   const userName = user?.userName;
 
@@ -106,54 +109,23 @@ export default function DefenseDayPage() {
   } | null>(null);
   const [confirmProcessing, setConfirmProcessing] = useState(false);
 
-  const rolesArray: string[] = (() => {
-    if (!roles) return [];
-    if (Array.isArray(roles)) return roles.map((r) => String(r).toLowerCase());
-    if (typeof roles === "string") {
-      // handle comma-separated string as well
-      return roles
-        .split?.(",")
-        .map((r) => r.trim())
-        .filter(Boolean)
-        .map((r) => r.toLowerCase());
-    }
-    return [];
-  })();
-
-  // If there's a token but roles are empty, auth may still be settling (wait)
-  const authSettling = Boolean(token && rolesArray.length === 0 && user);
-
-  // Use memoized checks from normalized roles
-  const PANEL_KEYWORDS = [
-    "panel_member",
-    "internal_examiner",
-    "supervisor",
-    "major_supervisor",
-    "provost",
-  ];
-
   const isPanel = React.useMemo(
     () =>
-      rolesArray.some((r) =>
-        PANEL_KEYWORDS.some((k) => r === k || r.startsWith(k) || r.includes(k))
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rolesArray.join("|")]
+      hasRole([
+        "panel_member",
+        "internal_examiner",
+        "supervisor",
+        "major_supervisor",
+        "provost",
+        "faculty_pg_rep",
+      ]),
+    [hasRole]
   );
 
-
-  const isHodOrProvost = React.useMemo(() => {
-    const role = String(user?.role ?? "").toLowerCase().trim();
-    if (!role) return false;
-    return (
-      role === "hod" ||
-      role === "provost" ||
-      role.includes("hod") ||
-      role.includes("provost") ||
-      role.startsWith("hod") ||
-      role.startsWith("provost")
-    );
-  }, [user?.role]);
+  const isHodOrProvost = React.useMemo(
+    () => hasRole(["hod", "provost"]),
+    [hasRole]
+  );
 
 
   console.log("isHodOrProvost", isHodOrProvost);
@@ -169,6 +141,8 @@ export default function DefenseDayPage() {
   const [activeDefenseIdx, setActiveDefenseIdx] = useState(0);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [level, setLevel] = useState<Level>("MSC"); // controls which level to fetch
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "students" | "scores" | "assessment"
   >("students");
@@ -302,285 +276,282 @@ export default function DefenseDayPage() {
     return Math.max(0, start - Date.now()); // milliseconds until start
   };
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchIdsAndDetails = useCallback(async (isCancelled = () => false) => {
+    let isStillLoading = true;
+    setLoading(true);
+    setError(null);
 
-    if (!token || authSettling || !isPanel) {
-      // still set cached UI or clear if needed; but don't fetch yet
-      setDefenseDays(defenseCache[level] ?? []);
+    // Set a timeout for error handling
+    const timeoutId = setTimeout(() => {
+      if (isStillLoading && !isCancelled()) {
+        setError(
+          "Fetching defense details is taking longer than expected. Please check your connection."
+        );
+        setLoading(false);
+      }
+    }, 15000); // 15 seconds timeout
+
+    try {
+      const recentUrl = `${baseUrl}/defence/panel-member/${encodeURIComponent(
+        level
+      )}`;
+      console.log(
+        `[DefenseDayPage] GET /defence/panel-member -> ${recentUrl}`
+      );
+      const resRecent = await fetch(recentUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!resRecent.ok) {
+        // Handle 400 or 404 as "no defenses" if the body is empty or suggests it
+        if (resRecent.status === 400 || resRecent.status === 404) {
+          console.warn(`[DefenseDayPage] ${resRecent.status} received for level ${level}. Treating as empty list.`);
+          setDefenseDays([]);
+          setDefenseCache(prev => ({ ...prev, [level]: [] }));
+          return;
+        }
+        throw new Error(`Failed to fetch defense list: ${resRecent.status}`);
+      }
+
+      const textRecent = await resRecent.text();
+      console.log(
+        "[DefenseDayPage] /defence/recent status:",
+        resRecent.status
+      );
+
+      console.log("[DefenseDayPage] /defence/recent raw text:", textRecent);
+
+      let parsedRecent: any = null;
+      try {
+        parsedRecent = textRecent ? JSON.parse(textRecent) : null;
+      } catch {
+        parsedRecent = textRecent;
+      }
+      console.log("[DefenseDayPage] /defence/recent parsed:", parsedRecent);
+
+      if (isCancelled()) return;
+
+      // robust extraction of ids:
+      let ids: string[] = [];
+      if (!parsedRecent) {
+        ids = [];
+      } else if (Array.isArray(parsedRecent)) {
+        if (
+          parsedRecent.every(
+            (it) => typeof it === "string" || typeof it === "number"
+          )
+        ) {
+          ids = parsedRecent.map(String);
+        } else {
+          ids = parsedRecent
+            .map(
+              (it: any) =>
+                it?.id ?? it?._id ?? it?.defenceId ?? it?.defenseId ?? null
+            )
+            .filter(Boolean)
+            .map(String);
+        }
+      } else if (typeof parsedRecent === "object") {
+        // single-object case like: { _id: "68d5b548...", department: "Computer Science" }
+        if (
+          parsedRecent._id ||
+          parsedRecent.id ||
+          parsedRecent.defenceId ||
+          parsedRecent.defenseId
+        ) {
+          ids = [
+            String(
+              parsedRecent._id ??
+                parsedRecent.id ??
+                parsedRecent.defenceId ??
+                parsedRecent.defenseId
+            ),
+          ];
+        } else {
+          const cand =
+            parsedRecent?.data ??
+            parsedRecent?.ids ??
+            parsedRecent?.defenseIds ??
+            parsedRecent?.result ??
+            parsedRecent?.items ??
+            null;
+
+          if (Array.isArray(cand)) {
+            if (
+              cand.every(
+                (it: any) => typeof it === "string" || typeof it === "number"
+              )
+            ) {
+              ids = cand.map(String);
+            } else {
+              ids = cand
+                .map(
+                  (it: any) =>
+                    it?.id ??
+                    it?._id ??
+                    it?.defenceId ??
+                    it?.defenseId ??
+                    null
+                )
+                .filter(Boolean)
+                .map(String);
+            }
+          } else {
+            const maybeArray = Object.values(parsedRecent).find((v: any) =>
+              Array.isArray(v)
+            );
+            if (Array.isArray(maybeArray)) {
+              ids = maybeArray
+                .map((it: any) =>
+                  typeof it === "string" || typeof it === "number"
+                    ? String(it)
+                    : it?.id ?? it?._id ?? null
+                )
+                .filter(Boolean);
+            }
+          }
+        }
+      }
+
+      console.log("[DefenseDayPage] extracted defence IDs:", ids);
+
+      if (isCancelled()) return;
+
+      if (!ids || ids.length === 0) {
+        console.warn(
+          "[DefenseDayPage] no defence IDs returned for level",
+          level
+        );
+        setDefenseDays([]);
+        setDefenseCache(prev => ({ ...prev, [level]: [] }));
+        return;
+      }
+
+      // fetch details for each id in parallel
+      const fetchDetailForId = async (did: string) => {
+        try {
+          const dUrl = `${baseUrl}/defence/${encodeURIComponent(did)}`;
+          console.log(`[DefenseDayPage] GET /defence/${did} -> ${dUrl}`);
+          const res = await fetch(dUrl, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
+
+          const text = await res.text();
+          console.log(`[DefenseDayPage] /defence/${did} raw text:`, text);
+
+          let parsed: any = null;
+          try {
+            parsed = text ? JSON.parse(text) : null;
+          } catch {
+            parsed = text;
+          }
+          console.log(`[DefenseDayPage] /defence/${did} parsed:`, parsed);
+
+          // API returns { success: true, data: { defence, students, criteria } }
+          const defObj =
+            parsed?.data?.defence ??
+            parsed?.defence ??
+            parsed?.data ??
+            parsed;
+          const extra = parsed?.data ?? parsed;
+          // map using the defence object and extra data (students + criteria)
+          const mapped = mapDefenseFromDefenceObj(defObj, extra);
+          return mapped;
+        } catch (err) {
+          console.error(
+            `[DefenseDayPage] failed to fetch details for ${did}:`,
+            err
+          );
+          return null;
+        }
+      };
+
+      const detailPromises = ids.map((id) => fetchDetailForId(id));
+      const results = await Promise.all(detailPromises);
+      const normalizedDefs = results.filter(Boolean) as DefenseDay[];
+
+      if (isCancelled()) return;
+
+      if (normalizedDefs.length === 0) {
+        console.warn(
+          "[DefenseDayPage] could not normalize any defence details for ids:",
+          ids
+        );
+        setDefenseDays([]);
+        setDefenseCache(prev => ({ ...prev, [level]: [] }));
+        return;
+      }
+
+      // update cache for this level and immediately show
+      setDefenseCache((prev) => {
+        const next = { ...prev, [level]: normalizedDefs };
+        return next;
+      });
+      setDefenseDays(normalizedDefs);
       setActiveDefenseIdx(0);
-      if (
-        (defenseCache[level] ?? []).length > 0 &&
-        (defenseCache[level] ?? [])[0].criteria
-      ) {
-        setCriteria((defenseCache[level] ?? [])[0].criteria ?? []);
+
+      // seed criteria from first defense if available
+      if (normalizedDefs[0]?.criteria) {
+        setCriteria(normalizedDefs[0].criteria ?? []);
       } else {
         setCriteria([]);
       }
+
+      console.log(
+        "[DefenseDayPage] normalized defenseDays for level",
+        level,
+        normalizedDefs
+      );
+    } catch (err: any) {
+      console.error(
+        "[DefenseDayPage] error fetching recent ids or details:",
+        err
+      );
+      if (!isCancelled()) {
+        setError(err.message || "Failed to load defense details. Please try again.");
+      }
+    } finally {
+      isStillLoading = false;
+      if (!isCancelled()) {
+        setLoading(false);
+        clearTimeout(timeoutId);
+      }
+    }
+  }, [level, token, baseUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // Immediately show cached data for this level if we have it
+    setDefenseDays(defenseCache[level] ?? []);
+    setActiveDefenseIdx(0);
+    if (
+      (defenseCache[level] ?? []).length > 0 &&
+      (defenseCache[level] ?? [])[0].criteria
+    ) {
+      setCriteria((defenseCache[level] ?? [])[0].criteria ?? []);
+    } else {
+      setCriteria([]);
+    }
+
+    if (!token || !isPanel) {
       return;
     }
 
-    const fetchIdsAndDetails = async () => {
-      try {
-        const recentUrl = `${baseUrl}/defence/panel-member/${encodeURIComponent(
-          level
-        )}`;
-        console.log(
-          `[DefenseDayPage] GET /defence/panel-member -> ${recentUrl}`
-        );
-        const resRecent = await fetch(recentUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-
-        const textRecent = await resRecent.text();
-        console.log(
-          "[DefenseDayPage] /defence/recent status:",
-          resRecent.status
-        );
-
-        console.log("[DefenseDayPage] /defence/recent raw text:", textRecent);
-
-        let parsedRecent: any = null;
-        try {
-          parsedRecent = textRecent ? JSON.parse(textRecent) : null;
-        } catch {
-          parsedRecent = textRecent;
-        }
-        console.log("[DefenseDayPage] /defence/recent parsed:", parsedRecent);
-
-        if (cancelled) return;
-
-        // robust extraction of ids:
-        let ids: string[] = [];
-        if (!parsedRecent) {
-          ids = [];
-        } else if (Array.isArray(parsedRecent)) {
-          if (
-            parsedRecent.every(
-              (it) => typeof it === "string" || typeof it === "number"
-            )
-          ) {
-            ids = parsedRecent.map(String);
-          } else {
-            ids = parsedRecent
-              .map(
-                (it: any) =>
-                  it?.id ?? it?._id ?? it?.defenceId ?? it?.defenseId ?? null
-              )
-              .filter(Boolean)
-              .map(String);
-          }
-        } else if (typeof parsedRecent === "object") {
-          // single-object case like: { _id: "68d5b548...", department: "Computer Science" }
-          if (
-            parsedRecent._id ||
-            parsedRecent.id ||
-            parsedRecent.defenceId ||
-            parsedRecent.defenseId
-          ) {
-            ids = [
-              String(
-                parsedRecent._id ??
-                  parsedRecent.id ??
-                  parsedRecent.defenceId ??
-                  parsedRecent.defenseId
-              ),
-            ];
-          } else {
-            const cand =
-              parsedRecent?.data ??
-              parsedRecent?.ids ??
-              parsedRecent?.defenseIds ??
-              parsedRecent?.result ??
-              parsedRecent?.items ??
-              null;
-
-            if (Array.isArray(cand)) {
-              if (
-                cand.every(
-                  (it: any) => typeof it === "string" || typeof it === "number"
-                )
-              ) {
-                ids = cand.map(String);
-              } else {
-                ids = cand
-                  .map(
-                    (it: any) =>
-                      it?.id ??
-                      it?._id ??
-                      it?.defenceId ??
-                      it?.defenseId ??
-                      null
-                  )
-                  .filter(Boolean)
-                  .map(String);
-              }
-            } else {
-              const maybeArray = Object.values(parsedRecent).find((v: any) =>
-                Array.isArray(v)
-              );
-              if (Array.isArray(maybeArray)) {
-                ids = maybeArray
-                  .map((it: any) =>
-                    typeof it === "string" || typeof it === "number"
-                      ? String(it)
-                      : it?.id ?? it?._id ?? null
-                  )
-                  .filter(Boolean);
-              }
-            }
-          }
-        }
-
-        console.log("[DefenseDayPage] extracted defence IDs:", ids);
-
-        if (cancelled) return;
-
-        if (!ids || ids.length === 0) {
-          console.warn(
-            "[DefenseDayPage] no defence IDs returned for level",
-            level
-          );
-          // leave cache as-is (don't clear other level); nothing to set
-          return;
-        }
-
-        // fetch details for each id in parallel
-        const fetchDetailForId = async (did: string) => {
-          try {
-            const dUrl = `${baseUrl}/defence/${encodeURIComponent(did)}`;
-            console.log(`[DefenseDayPage] GET /defence/${did} -> ${dUrl}`);
-            const res = await fetch(dUrl, {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-            });
-
-            const text = await res.text();
-            console.log(`[DefenseDayPage] /defence/${did} raw text:`, text);
-
-            let parsed: any = null;
-            try {
-              parsed = text ? JSON.parse(text) : null;
-            } catch {
-              parsed = text;
-            }
-            console.log(`[DefenseDayPage] /defence/${did} parsed:`, parsed);
-
-            // API returns { success: true, data: { defence, students, criteria } }
-            const defObj =
-              parsed?.data?.defence ??
-              parsed?.defence ??
-              parsed?.data ??
-              parsed;
-            const extra = parsed?.data ?? parsed;
-            // map using the defence object and extra data (students + criteria)
-            const mapped = mapDefenseFromDefenceObj(defObj, extra);
-            return mapped;
-          } catch (err) {
-            console.error(
-              `[DefenseDayPage] failed to fetch details for ${did}:`,
-              err
-            );
-            return null;
-          }
-        };
-
-        const detailPromises = ids.map((id) => fetchDetailForId(id));
-        const results = await Promise.all(detailPromises);
-        const normalizedDefs = results.filter(Boolean) as DefenseDay[];
-
-        if (cancelled) return;
-
-        if (normalizedDefs.length === 0) {
-          console.warn(
-            "[DefenseDayPage] could not normalize any defence details for ids:",
-            ids
-          );
-          return;
-        }
-
-        // update cache for this level and immediately show
-        setDefenseCache((prev) => {
-          const next = { ...prev, [level]: normalizedDefs };
-          return next;
-        });
-        setDefenseDays(normalizedDefs);
-        setActiveDefenseIdx(0);
-
-        // seed criteria from first defense if available
-        if (normalizedDefs[0]?.criteria) {
-          setCriteria(normalizedDefs[0].criteria ?? []);
-        } else {
-          setCriteria([]);
-        }
-
-        console.log(
-          "[DefenseDayPage] normalized defenseDays for level",
-          level,
-          normalizedDefs
-        );
-      } catch (err) {
-        console.error(
-          "[DefenseDayPage] error fetching recent ids or details:",
-          err
-        );
-      }
-    };
-
-    void fetchIdsAndDetails();
+    fetchIdsAndDetails(() => cancelled);
 
     return () => {
       cancelled = true;
     };
-  }, [level, token, isPanel, authSettling]);
-
-  // ---------- AUTO-REFRESH WHEN AUTH IS STILL SETTLING OR USER IS NOT PANEL ----------
-  useEffect(() => {
-    // Only set an auto-reload when either auth is still settling or user is currently not a panel member.
-    // Wait a short time to allow auth to finish; don't reload immediately to avoid loop.
-    let timer: number | undefined;
-    if (authSettling || (!authSettling && !isPanel)) {
-      // auto refresh after 8 seconds
-      timer = window.setTimeout(() => {
-        // before reloading, check again (avoid infinite loop if condition changed)
-        if (authSettling || (!authSettling && !isPanel)) {
-          window.location.reload();
-        }
-      }, 8000);
-    }
-    return () => {
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [authSettling, isPanel]);
-
-  if (authSettling) {
-    return (
-      <div className="p-6 text-center text-gray-600">
-        <h1 className="text-lg font-medium">Loading permissions…</h1>
-        <p className="text-sm mt-1">
-          If it takes time, you can refresh the page.
-        </p>
-        <div className="mt-4">
-          <Button
-            onClick={() => window.location.reload()}
-            className="bg-amber-700 text-white"
-          >
-            Refresh
-          </Button>
-        </div>
-        <p className="mt-2 text-xs text-gray-400">
-          (Auto-refresh will try in 8 seconds if this status persists.)
-        </p>
-      </div>
-    );
-  }
+  }, [level, token, isPanel, fetchIdsAndDetails]);
 
   if (!isPanel) {
     return (
@@ -600,9 +571,6 @@ export default function DefenseDayPage() {
             Refresh
           </Button>
         </div>
-        <p className="mt-2 text-xs text-gray-400">
-          (Auto-refresh will try in 8 seconds if this status persists.)
-        </p>
       </div>
     );
   }
@@ -886,7 +854,7 @@ export default function DefenseDayPage() {
       return;
     }
 
-    const panelMemberId = String(user?.id ?? user?._id ?? "");
+    const panelMemberId = String(user?.id ?? "");
     if (!panelMemberId) {
       toast({
         title: "No panel member id",
@@ -1018,27 +986,27 @@ export default function DefenseDayPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6 min-h-[60vh] flex flex-col">
       {/* Level toggle */}
       <div className="flex gap-2 items-center justify-end">
         <div className="text-sm text-gray-600 mr-2">Level:</div>
         <div className="flex gap-2">
           <button
             onClick={() => setLevel("MSC")}
-            className={`px-3 py-1 rounded-md text-sm font-medium ${
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
               level === "MSC"
                 ? "bg-amber-700 text-white"
-                : "bg-gray-100 text-gray-700"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             MSc
           </button>
           <button
             onClick={() => setLevel("PHD")}
-            className={`px-3 py-1 rounded-md text-sm font-medium ${
+            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
               level === "PHD"
                 ? "bg-amber-700 text-white"
-                : "bg-gray-100 text-gray-700"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             PhD
@@ -1046,241 +1014,291 @@ export default function DefenseDayPage() {
         </div>
       </div>
 
-      {/* Defence day tabs */}
-
-      <div className="flex gap-2 items-center overflow-x-auto">
-        {defenseDays.map((d, i) => (
-          <button
-            key={d.id}
-            onClick={() => {
-              setActiveDefenseIdx(i);
-              setActiveTab("students");
-              setCriteria(d.criteria ?? []);
-            }}
-            title={`${d.title ?? `Defense ${i + 1}`} • ${new Date(
-              d.date
-            ).toLocaleString()}`}
-            aria-label={`Defense ${i + 1}`}
-            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-              i === activeDefenseIdx
-                ? "bg-amber-700 text-white"
-                : "bg-gray-100 text-gray-700"
-            }`}
-          >
-            {`Defense ${i + 1}`}
-          </button>
-        ))}
-      </div>
-
-      {/* Active defense header */}
-      {activeDefense && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="bg-white border border-amber-100 rounded-lg p-6 w-full flex sm:flex-1 items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h2 className="text-3xl font-extrabold text-gray-900">
-                Defense Day Details
-              </h2>
-              <p className="text-sm text-amber-700/90 mt-1">
-                {activeDefense.date}, {activeDefense.time} | Level:{" "}
-                <strong>{activeDefense.level}</strong> | Defense:{" "}
-                <strong className="capitalize">
-                  {formatStage(activeDefense.currentStage, activeDefense.level)}
-                </strong>
-              </p>
-              <p className="text-sm text-gray-700 mt-3">
-                Countdown:{" "}
-                <strong className="text-amber-700">
-                  {formatHoursCountdown(getCountdownFor(activeDefense))}
-                </strong>{" "}
-                {activeDefense.sessionActive
-                  ? " (Session active)"
-                  : " (Not started)"}
-              </p>
-              <p className="text-sm text-gray-700 mt-3">
-                {user.userName} | Role: {user.role}
-              </p>
-            </div>
-
-            {isHodOrProvost && (
-              <div className="flex-shrink-0">
-                <Button
-                  onClick={() => handleToggleSession(activeDefense.id)}
-                  disabled={toggling}
-                  className={`flex items-center px-4 py-2 rounded-full shadow-sm ${
-                    activeDefense.sessionActive
-                      ? "bg-amber-50 border border-amber-100 text-amber-700"
-                      : "bg-amber-700 text-white"
-                  }`}
-                >
-                  {toggling
-                    ? activeDefense.sessionActive
-                      ? "Ending..."
-                      : "Starting..."
-                    : activeDefense.sessionActive
-                    ? "End Session"
-                    : "Start Session"}
-                </Button>
-              </div>
-            )}
+      <div className="relative flex-1 flex flex-col min-h-[400px]">
+        {/* Loading Overlay - only show as overlay if we have data to show underneath */}
+        {loading && defenseDays.length > 0 && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-[1px] rounded-xl transition-all duration-300 animate-in fade-in">
+            <LoadingSpinner size="xl" text="Updating defense details..." />
           </div>
-        </div>
-      )}
-
-      {/* Secondary controlled tabs */}
-      <div className="flex border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab("students")}
-          className={`px-4 py-2 -mb-px font-medium text-sm ${
-            activeTab === "students"
-              ? "border-b-2 border-amber-700 text-amber-700"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Students
-        </button>
-        <button
-          onClick={() => setActiveTab("scores")}
-          className={`px-4 py-2 -mb-px font-medium text-sm ${
-            activeTab === "scores"
-              ? "border-b-2 border-amber-700 text-amber-700"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Score Sheet
-        </button>
-        {isHodOrProvost && (
-          <button
-            onClick={() => setActiveTab("assessment")}
-            className={`px-4 py-2 -mb-px font-medium text-sm ${
-              activeTab === "assessment"
-                ? "border-b-2 border-amber-700 text-amber-700"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Assessment
-          </button>
-        )}
-      </div>
-
-      <div>
-        {activeTab === "students" && (
-          <StudentsPanel
-            students={activeDefense?.students ?? []}
-            onOpen={(s) =>
-              setSelectedStudent({
-                student: s,
-                defenseId: activeDefense?.id ?? "",
-              })
-            }
-          />
         )}
 
-        {activeTab === "scores" && (
-          <ScoreSheetPanel
-            defense={activeDefense ?? ({} as any)}
-            criteria={activeDefense?.criteria ?? criteria}
-            canScore={isPanel}
-            onScoreChange={(studentId, crit, value) =>
-              handleScoreChange(activeDefense?.id ?? "", studentId, crit, value)
-            }
-            onSubmit={() => handleSubmitScores(activeDefense?.id ?? "")}
-          />
-        )}
-
-        {activeTab === "assessment" && isHodOrProvost && (
-          <AssessmentPanel
-            students={activeDefense?.students ?? []}
-            criteria={activeDefense?.criteria ?? criteria}
-            onApprove={(studentId) => handleApprove(studentId)}
-            onReject={(studentId) => handleReject(studentId)}
-            processingIds={processingIds}
-            defenseStage={activeDefense?.currentStage}
-            defense={activeDefense ?? ({} as any)}
-            defenseStageLabel={formatStage(
-              activeDefense?.currentStage,
-              activeDefense?.level
-            )}
-          />
-        )}
-      </div>
-
-      {/* Confirm dialog for starting/ending session */}
-      <Dialog
-        open={!!confirmingSession}
-        onOpenChange={() => {
-          // close dialog when user clicks outside / presses ESC
-          if (!confirmProcessing) setConfirmingSession(null);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {confirmingSession?.action === "start"
-                ? "Start Defense Session"
-                : "End Defense Session"}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="py-4">
-            <p className="text-sm text-gray-700">
-              {confirmingSession?.action === "start" ? (
-                <>
-                  You are about to <strong>start</strong> the session for{" "}
-                  <span className="font-medium">
-                    {confirmingSession?.title ?? ""}
-                  </span>
-                  . Panel members will be able to submit scores.
-                </>
-              ) : (
-                <>
-                  You are about to <strong>end</strong> the session for{" "}
-                  <span className="font-medium">
-                    {confirmingSession?.title ?? ""}
-                  </span>
-                  . Ending will stop further submissions.
-                </>
-              )}
-            </p>
+        {/* Initial Loading State - show if loading and no data yet */}
+        {loading && defenseDays.length === 0 && !error && (
+          <div className="flex-1 flex items-center justify-center py-20 animate-in fade-in duration-500">
+            <LoadingSpinner size="xl" text="Loading defense details..." />
           </div>
+        )}
 
-          <DialogFooter className="flex gap-2 justify-end">
-            <Button
+        {/* Error State */}
+        {error ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 text-center space-y-4 animate-in fade-in">
+            <div className="bg-red-50 p-6 rounded-xl border border-red-100 max-w-md">
+            <h3 className="text-red-800 font-semibold text-lg mb-2">Something went wrong</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <Button 
               onClick={() => {
-                if (confirmProcessing) return;
-                setConfirmingSession(null);
+                setError(null);
+                fetchIdsAndDetails();
               }}
-              variant="secondary"
-              className="px-4 py-2"
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              Cancel
+              Try Again
             </Button>
+          </div>
+          </div>
+        ) : (
+          /* Main Content or Empty State */
+          <div className={cn(
+            "flex-1 flex flex-col space-y-6 transition-all duration-500",
+            loading && defenseDays.length > 0 ? "opacity-50 pointer-events-none" : "opacity-100"
+          )}>
+            {defenseDays.length === 0 && !loading ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-20 text-center text-gray-500 bg-white rounded-xl border border-dashed border-gray-200 animate-in fade-in">
+                <p className="text-lg font-medium">No defense days found for {level}.</p>
+                <p className="text-sm">Check back later or try a different level.</p>
+              </div>
+            ) : (
+              defenseDays.length > 0 && (
+                <>
+                  {/* Defence day tabs */}
+                  <div className="flex gap-2 items-center overflow-x-auto">
+                    {defenseDays.map((d, i) => (
+                      <button
+                        key={d.id}
+                        onClick={() => {
+                          setActiveDefenseIdx(i);
+                          setActiveTab("students");
+                          setCriteria(d.criteria ?? []);
+                        }}
+                        title={`${d.title ?? `Defense ${i + 1}`} • ${new Date(
+                          d.date
+                        ).toLocaleString()}`}
+                        aria-label={`Defense ${i + 1}`}
+                        className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+                          i === activeDefenseIdx
+                            ? "bg-amber-700 text-white"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {`Defense ${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
 
-            <Button
-              onClick={performToggleSession}
-              disabled={confirmProcessing}
-              className="bg-amber-700 text-white px-4 py-2"
-            >
-              {confirmProcessing
-                ? confirmingSession?.action === "start"
-                  ? "Starting..."
-                  : "Ending..."
-                : confirmingSession?.action === "start"
-                ? "Start Session"
-                : "End Session"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  {/* Active defense header */}
+                  {activeDefense && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="bg-white border border-amber-100 rounded-lg p-6 w-full flex sm:flex-1 items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <h2 className="text-3xl font-extrabold text-gray-900">
+                            Defense Day Details
+                          </h2>
+                          <p className="text-sm text-amber-700/90 mt-1">
+                            {activeDefense.date}, {activeDefense.time} | Level:{" "}
+                            <strong>{activeDefense.level}</strong> | Defense:{" "}
+                            <strong className="capitalize">
+                              {formatStage(activeDefense.currentStage, activeDefense.level)}
+                            </strong>
+                          </p>
+                          <p className="text-sm text-gray-700 mt-3">
+                            Countdown:{" "}
+                            <strong className="text-amber-700">
+                              {formatHoursCountdown(getCountdownFor(activeDefense))}
+                            </strong>{" "}
+                            {activeDefense.sessionActive
+                              ? " (Session active)"
+                              : " (Not started)"}
+                          </p>
+                          <p className="text-sm text-gray-700 mt-3">
+                            {user?.userName} | Role: {user?.roles?.[0] || "User"}
+                          </p>
+                        </div>
 
-      <StudentCommentModal
-        openItem={selectedStudent}
-        onClose={() => setSelectedStudent(null)}
-        onAddComment={handleAddCommentFromModal}
-        canComment={isPanel}
-        baseUrl={baseUrl}
-        token={token}
-        currentUserName={userName}
-      />
+                        {isHodOrProvost && (
+                          <div className="flex-shrink-0">
+                            <Button
+                              onClick={() => handleToggleSession(activeDefense.id)}
+                              disabled={toggling}
+                              className={`flex items-center px-4 py-2 rounded-full shadow-sm ${
+                                activeDefense.sessionActive
+                                  ? "bg-amber-50 border border-amber-100 text-amber-700"
+                                  : "bg-amber-700 text-white"
+                              }`}
+                            >
+                              {toggling
+                                ? activeDefense.sessionActive
+                                  ? "Ending..."
+                                  : "Starting..."
+                                : activeDefense.sessionActive
+                                ? "End Session"
+                                : "Start Session"}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Secondary controlled tabs */}
+                  <div className="flex border-b border-gray-200">
+                    <button
+                      onClick={() => setActiveTab("students")}
+                      className={`px-4 py-2 -mb-px font-medium text-sm ${
+                        activeTab === "students"
+                          ? "border-b-2 border-amber-700 text-amber-700"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Students
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("scores")}
+                      className={`px-4 py-2 -mb-px font-medium text-sm ${
+                        activeTab === "scores"
+                          ? "border-b-2 border-amber-700 text-amber-700"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Score Sheet
+                    </button>
+                    {isHodOrProvost && (
+                      <button
+                        onClick={() => setActiveTab("assessment")}
+                        className={`px-4 py-2 -mb-px font-medium text-sm ${
+                          activeTab === "assessment"
+                            ? "border-b-2 border-amber-700 text-amber-700"
+                            : "text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        Assessment
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    {activeTab === "students" && (
+                      <StudentsPanel
+                        students={activeDefense?.students ?? []}
+                        onOpen={(s) =>
+                          setSelectedStudent({
+                            student: s,
+                            defenseId: activeDefense?.id ?? "",
+                          })
+                        }
+                      />
+                    )}
+
+                    {activeTab === "scores" && (
+                      <ScoreSheetPanel
+                        defense={activeDefense ?? ({} as any)}
+                        criteria={activeDefense?.criteria ?? criteria}
+                        canScore={isPanel}
+                        onScoreChange={(studentId, crit, value) =>
+                          handleScoreChange(activeDefense?.id ?? "", studentId, crit, value)
+                        }
+                        onSubmit={() => handleSubmitScores(activeDefense?.id ?? "")}
+                      />
+                    )}
+
+                    {activeTab === "assessment" && isHodOrProvost && (
+                      <AssessmentPanel
+                        students={activeDefense?.students ?? []}
+                        criteria={activeDefense?.criteria ?? criteria}
+                        onApprove={(studentId) => handleApprove(studentId)}
+                        onReject={(studentId) => handleReject(studentId)}
+                        processingIds={processingIds}
+                        defenseStage={activeDefense?.currentStage}
+                        defense={activeDefense ?? ({} as any)}
+                        defenseStageLabel={formatStage(
+                          activeDefense?.currentStage,
+                          activeDefense?.level
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Confirm dialog for starting/ending session */}
+                  <Dialog
+                    open={!!confirmingSession}
+                    onOpenChange={() => {
+                      if (!confirmProcessing) setConfirmingSession(null);
+                    }}
+                  >
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>
+                          {confirmingSession?.action === "start"
+                            ? "Start Defense Session"
+                            : "End Defense Session"}
+                        </DialogTitle>
+                      </DialogHeader>
+
+                      <div className="py-4">
+                        <p className="text-sm text-gray-700">
+                          {confirmingSession?.action === "start" ? (
+                            <>
+                              You are about to <strong>start</strong> the session for{" "}
+                              <span className="font-medium">
+                                {confirmingSession?.title ?? ""}
+                              </span>
+                              . Panel members will be able to submit scores.
+                            </>
+                          ) : (
+                            <>
+                              You are about to <strong>end</strong> the session for{" "}
+                              <span className="font-medium">
+                                {confirmingSession?.title ?? ""}
+                              </span>
+                              . Ending will stop further submissions.
+                            </>
+                          )}
+                        </p>
+                      </div>
+
+                      <DialogFooter className="flex gap-2 justify-end">
+                        <Button
+                          onClick={() => {
+                            if (confirmProcessing) return;
+                            setConfirmingSession(null);
+                          }}
+                          variant="secondary"
+                          className="px-4 py-2"
+                        >
+                          Cancel
+                        </Button>
+
+                        <Button
+                          onClick={performToggleSession}
+                          disabled={confirmProcessing}
+                          className="bg-amber-700 text-white px-4 py-2"
+                        >
+                          {confirmProcessing
+                            ? confirmingSession?.action === "start"
+                              ? "Starting..."
+                              : "Ending..."
+                            : confirmingSession?.action === "start"
+                            ? "Start Session"
+                            : "End Session"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <StudentCommentModal
+                    openItem={selectedStudent}
+                    onClose={() => setSelectedStudent(null)}
+                    onAddComment={handleAddCommentFromModal}
+                    canComment={isPanel}
+                    baseUrl={baseUrl}
+                    token={token}
+                    currentUserName={userName}
+                  />
+                </>
+              )
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

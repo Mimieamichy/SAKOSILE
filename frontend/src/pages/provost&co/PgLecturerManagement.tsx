@@ -3,14 +3,14 @@ import { useState } from "react";
 import PgCoordinatorTab from "./PgCoordinatorTab";
 import LecturerTab from "./LecturerTab";
 import AddStudentForm from "./AddStudentForm";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 
 const PgLecturerManagement = () => {
-  const { user } = useAuth(); // 'HOD', 'PGC', or 'PROVOST'
-  const isHod = user?.role?.toUpperCase() === "HOD";
-  const isProvost = user?.role?.toUpperCase() === "PROVOST";
-
-  const isPgc = user?.role?.toUpperCase() === "PGCORD";
+  const { user, hasRole } = useAuthStore(); // 'HOD', 'PGC', or 'PROVOST'
+  const isHod = hasRole(Role.HOD);
+  const isProvost = hasRole(Role.PROVOST);
+  const isPgc = hasRole(Role.PG_COORDINATOR);
 
   // Default tab choice
   const defaultTab = isHod ? "pg" : isProvost ? "lecturers" : "students";

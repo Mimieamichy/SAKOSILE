@@ -2,13 +2,14 @@
 import { useState, useEffect } from "react";
 import { GraduationCap, Users, BookUser, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "../AuthProvider";
-import axios from "axios";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 export default function HodDashboardOverview() {
-  const { user, token } = useAuth(); // use token if available in your auth provider
-  const toast = useToast().toast;
+  const { user, token, hasRole } = useAuthStore(); 
+  const { toast } = useToast();
 
   const [lecturersCount, setLecturersCount] = useState<number | null>(null);
   const [studentsCount, setStudentsCount] = useState<number | null>(null);
@@ -18,7 +19,7 @@ export default function HodDashboardOverview() {
   const [loadingCounts, setLoadingCounts] = useState(false);
 
   const baseUrl = import.meta.env.VITE_BACKEND_URL;
-  const isHod = user?.role?.toString().toLowerCase() === "hod";
+  const isHod = hasRole(Role.HOD);
   const displayName = user?.userName || "User";
 
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function HodDashboardOverview() {
         </h1>
         <p className="text-gray-600 mt-1 text-sm sm:text-base">
           Here’s an overview of your{" "}
-          <span className="font-semibold uppercase">{user?.role}</span>,{" "}
+          <span className="font-semibold uppercase">{user?.roles?.[0] || "HOD"}</span>,{" "}
           <span className="font-semibold">{user?.department}</span> activities
         </p>
       </div>

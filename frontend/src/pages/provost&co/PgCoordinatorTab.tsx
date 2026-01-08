@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 
 interface PGCoordinator {
   id: string;
@@ -10,8 +11,8 @@ interface PGCoordinator {
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function PgCoordinatorTab() {
-  const { token, user } = useAuth();
-  const isHod = user?.role?.toUpperCase() === "HOD";
+  const { token, user, hasRole } = useAuthStore();
+  const isHod = hasRole(Role.HOD);
 
   
   const [currentCord, setCurrentCord] = useState<PGCoordinator | null>(null);
@@ -28,13 +29,20 @@ export default function PgCoordinatorTab() {
         if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
         const { data } = await res.json();
         console.log("raw payload:", data);
-        // filter by user.roles includes 'pgcord'
+        // filter by user.roles includes 'pg_coordinator'
         const pgList: PGCoordinator[] = data
-          .filter(
-            (item: any) =>
-              Array.isArray(item.user?.roles) &&
-              item.user.roles.includes("pgcord")
-          )
+          .filter((item: any) => {
+            const roles: string[] = Array.isArray(item.user?.roles)
+              ? item.user.roles
+              : [];
+            return roles.some(
+              (r) =>
+                r.toLowerCase() === Role.PG_COORDINATOR ||
+                r.toLowerCase() === "pgcord" ||
+                r.toLowerCase() === "pg_coordinator" ||
+                r.toLowerCase() === "pgcoordinator"
+            );
+          })
           .map((item: any) => ({
             id: item._id,
             name: `${item.user.title} ${item.user.firstName} ${item.user.lastName}`,

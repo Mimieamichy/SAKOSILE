@@ -20,10 +20,12 @@ type State = {
 
   // actions
   setNotifications: (notes: NotificationItem[]) => void;
-  fetchNotifications: (opts: { baseUrl: string; token?: string }) => Promise<void>;
+  fetchNotifications: (opts: { baseUrl: string; token?: string; silent?: boolean }) => Promise<void>;
   markAsReadLocal: (id: string) => void;
+  markAllAsReadLocal: () => void;
   // changed to return boolean so callers can know success/failure
   markAsReadApi: (opts: { baseUrl: string; token?: string; id: string }) => Promise<boolean>;
+  markAllAsReadApi: (opts: { baseUrl: string; token?: string }) => Promise<boolean>;
   // utility selectors (derived)
   unreadCount: () => number;
   visibleForUser: (userId?: string | null, userRoles?: string[] | null) => NotificationItem[];
@@ -36,8 +38,8 @@ export const useNotificationStore = create<State>((set, get) => ({
 
   setNotifications: (notes) => set({ notifications: notes, error: null }),
 
-  fetchNotifications: async ({ baseUrl, token }) => {
-    set({ loading: true, error: null });
+  fetchNotifications: async ({ baseUrl, token, silent = false }) => {
+    if (!silent) set({ loading: true, error: null });
     try {
       const res = await fetch(`${baseUrl}/notification`, {
         headers: {
@@ -96,6 +98,12 @@ export const useNotificationStore = create<State>((set, get) => ({
     }));
   },
 
+  markAllAsReadLocal: () => {
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, read: true })),
+    }));
+  },
+
   // tries several common request shapes, re-fetches on success, returns true on success
   markAsReadApi: async ({ baseUrl, token, id }) => {
     if (!id) {
@@ -142,7 +150,7 @@ export const useNotificationStore = create<State>((set, get) => ({
         if (res.ok && looksUpdated) {
           // success — re-fetch canonical list to be safe
           if (typeof get().fetchNotifications === "function") {
-            await get().fetchNotifications({ baseUrl, token });
+            await get().fetchNotifications({ baseUrl, token, silent: true });
           }
           return true;
         }
@@ -150,7 +158,7 @@ export const useNotificationStore = create<State>((set, get) => ({
         // if res.ok but server didn't return updated object, try re-fetching and check store
         if (res.ok) {
           if (typeof get().fetchNotifications === "function") {
-            await get().fetchNotifications({ baseUrl, token });
+            await get().fetchNotifications({ baseUrl, token, silent: true });
             const n = get().notifications.find((x) => {
               const nid = (x as any)._id ?? (x as any).id ?? undefined;
               return nid && String(nid) === String(id);
@@ -167,6 +175,79 @@ export const useNotificationStore = create<State>((set, get) => ({
 
     console.warn("[notificationStore] none of the request shapes produced an apparent update. Check server API.");
     return false;
+  },
+
+  markAllAsReadApi: async ({ baseUrl, token }) => {
+    try {
+      // 1. Try bulk endpoint first
+      const res = await fetch(`${baseUrl}/notification/read-all`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (res.ok) {
+        console.log("[notificationStore] bulk read-all success");
+        if (typeof get().fetchNotifications === "function") {
+          await get().fetchNotifications({ baseUrl, token, silent: true });
+        }
+        return true;
+      }
+      
+      console.warn("[notificationStore] bulk read-all failed (status:", res.status, "). Falling back to individual updates.");
+
+      // 2. Fallback: Identify unread notifications and mark them individually
+      const unreadIds = get().notifications
+        .filter(n => !n.read)
+        .map(n => (n as any)._id ?? (n as any).id)
+        .filter(Boolean);
+
+      if (unreadIds.length === 0) return true;
+
+      // Process in small batches or sequentially to avoid overwhelming server
+      for (const id of unreadIds) {
+        // We use the most likely candidate from markAsReadApi
+        const candidates = [
+          { url: `${baseUrl}/notification`, method: "PATCH", body: { _id: id, read: true } },
+          { url: `${baseUrl}/notification/${encodeURIComponent(id)}`, method: "PATCH", body: { read: true } },
+          { url: `${baseUrl}/notification`, method: "PATCH", body: { id, read: true } },
+        ];
+        
+        let successForThisId = false;
+        for (const c of candidates) {
+          try {
+            const r = await fetch(c.url, {
+              method: c.method,
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify(c.body),
+            });
+            if (r.ok) {
+              successForThisId = true;
+              break; 
+            }
+          } catch (e) {
+            // ignore and try next candidate
+          }
+        }
+        if (!successForThisId) {
+           console.warn(`[notificationStore] could not mark notification ${id} as read in fallback.`);
+        }
+      }
+
+      // Final re-fetch to sync canonical state from server
+      if (typeof get().fetchNotifications === "function") {
+        await get().fetchNotifications({ baseUrl, token, silent: true });
+      }
+      return true; 
+    } catch (err) {
+      console.error("[notificationStore] markAllAsReadApi exception:", err);
+      return false;
+    }
   },
 
   unreadCount: () => {

@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/pages/AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -45,7 +45,7 @@ export default function AssignCollegeRepModal({
 
   onAssigned,
 }: Props) {
-  const { token } = useAuth();
+  const { token } = useAuthStore();
 
   // filters
   const [staffIdFilter, setStaffIdFilter] = useState("");

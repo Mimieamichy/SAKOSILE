@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,14 +33,12 @@ interface SetDefenseModalProps {
   defenseStage: string;
   defenseLabel?: string; // optional label for display (e.g., "Proposal Defense")
   lecturers?: Lecturer[]; // optional preloaded lecturers
-  schedulerRole?: "hod" | "provost" | "pgcord"; // default "hod"
   studentIds: string[]; // required: students to schedule (fallback)
   // optional: full student objects from parent so we can filter by currentStage here
   allStudents?: StudentObj[];
   program: string;
   session: string;
   baseUrl: string;
-  token?: string | null;
   onScheduled?: (resp: any) => void;
   // department is used for college-rep lookup (optional — pass from parent)
   department?: string;
@@ -81,16 +80,18 @@ const SetDefenseModal: React.FC<SetDefenseModalProps> = ({
   defenseLabel, // <-- new optional prop
   defenseStage,
   lecturers: initialLecturers,
-  schedulerRole = "hod",
   studentIds,
   allStudents, // <-- new optional prop
   program,
   session,
   baseUrl,
-  token,
   onScheduled,
   department,
 }) => {
+  const { token, hasRole } = useAuthStore();
+  const isProvost = hasRole("provost");
+  const isHod = hasRole("hod");
+  const isPgc = hasRole("pg_coordinator");
   const { toast } = useToast();
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -506,11 +507,11 @@ const SetDefenseModal: React.FC<SetDefenseModalProps> = ({
                   lec.name ||
                   lec._id;
 
-                // Get first role from user.roles (fallback to lec.role)
+                // Get first role from user.roles
                 const firstRole =
-                  Array.isArray(lec.user?.roles) && lec.user!.roles.length
-                    ? lec.user!.roles[0]
-                    : lec.role ?? "";
+                  Array.isArray(lec.user?.roles) && lec.user.roles.length
+                    ? lec.user.roles[0]
+                    : "";
 
                 // human friendly label
                 const roleLabel = prettyRole(firstRole);

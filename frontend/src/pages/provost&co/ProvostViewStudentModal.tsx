@@ -5,12 +5,13 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
+import { useAuthStore } from "@/store/authStore";
+
 interface ProvostViewStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   studentId: string;
   baseUrl: string; // import.meta.env.VITE_BACKEND_URL
-  token?: string | null;
   watermarkUrl?: string;
 }
 
@@ -19,9 +20,9 @@ export default function ProvostViewStudentModal({
   onClose,
   studentId,
   baseUrl,
-  token,
   watermarkUrl,
 }: ProvostViewStudentModalProps) {
+  const { token } = useAuthStore();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);

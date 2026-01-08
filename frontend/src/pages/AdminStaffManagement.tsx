@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useAuth } from "./AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -25,7 +25,7 @@ interface LecturerRecord {
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function AdminStaffManagement() {
-  const { token } = useAuth();
+  const { token } = useAuthStore();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"hod" | "provost" | "dean">("hod");
 

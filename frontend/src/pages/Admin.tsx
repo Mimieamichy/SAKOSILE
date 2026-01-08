@@ -6,7 +6,7 @@ import AddHodModal, { NewHodData } from "@/components/AddHodModal";
 import AdminStaffManagement from "./AdminStaffManagement";
 import UpdatePasswordModal from "./UpdatePasswordModal";
 import axios from "axios";
-import { useAuth } from "./AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function Admin() {
-  const { user, token, logout } = useAuth();
+  const { user, token, logout } = useAuthStore();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -54,7 +54,7 @@ export default function Admin() {
           })}
         </span>
         <div className="flex items-center gap-4">
-          <span className="text-gray-600 uppercase">{user?.role}</span>
+          <span className="text-gray-600 uppercase">{user?.roles?.[0] || "Admin"}</span>
           <Lock
             className="w-6 h-6 text-gray-600 cursor-pointer"
             onClick={() => setResetModalOpen(true)}

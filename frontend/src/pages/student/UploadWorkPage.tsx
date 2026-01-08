@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, FileText, Download, Send } from "lucide-react";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
@@ -16,7 +16,7 @@ type CommentItem = {
 };
 
 export default function UploadWorkPage() {
-  const { token, user } = useAuth();
+  const { token, user } = useAuthStore();
   const { toast } = useToast();
   const userName = user?.userName ?? user?.email ?? "User";
 

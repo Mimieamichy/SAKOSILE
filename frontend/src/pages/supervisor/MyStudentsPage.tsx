@@ -7,7 +7,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 import { Download, Send, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -94,7 +95,7 @@ type Student = {
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function MyStudentsPage() {
-  const { user, token } = useAuth();
+  const { user, token, hasRole } = useAuthStore();
   const userName = user?.userName || "Supervisor";
   const { toast } = useToast();
   // students + loading / error
@@ -128,15 +129,7 @@ export default function MyStudentsPage() {
 
   const selected = selectedIdx !== null ? displayedStudents[selectedIdx] : null;
 
-  // helper: detect if current user is a supervisor (try multiple shapes)
-  const isSupervisor = (() => {
-    const r = (user as any)?.roles ?? (user?.role ? [user.role] : []);
-    if (!r) return false;
-    const arr = Array.isArray(r) ? r : [r];
-    return arr
-      .map((x: any) => String(x).toLowerCase())
-      .some((s: string) => s.includes("supervisor"));
-  })();
+  const isSupervisor = hasRole(Role.SUPERVISOR);
 
   // helper: check if current user is the major supervisor for a student
  const isMajorSupervisorOf = (stu: Student | null | undefined) => {

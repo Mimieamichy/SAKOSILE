@@ -16,10 +16,11 @@ import AssignSupervisorModal from "./AssignSupervisorModal";
 import ProvostViewStudentModal from "./ProvostViewStudentModal";
 import SetDefenseModal from "./SetDefenseModal";
 import EditStudentModal from "./EditStudentModal";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 import AssignCollegeRepModal from "./AssignCollegeRepModal";
 import waterMark from "../fulafia logo.png";
-import ScoreSheetGenerator, { Criterion } from "./ScoreSheetGenerator";
+
 
 interface StudentFromAPI {
   _id: string;
@@ -74,35 +75,43 @@ const getStageKey = (label: string) => {
   return norm.replace(/\s+/g, "_");
 };
 
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 const START_KEY = getStageKey("Start");
 const COMPLETED_KEY = getStageKey("Completed");
 
 
 const getLabelFromKey = (key: string, labels: string[]) => {
   const found = labels.find((l) => getStageKey(l) === key);
-  return found ?? key;
+  if (found) return found;
+  // Fallback: format the key to look like a label (e.g., proposal_defense -> Proposal Defense)
+  return key
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 };
 
 const StudentSessionManagement = () => {
-  const { token, user } = useAuth();
+  const { token, user, hasRole } = useAuthStore();
 
-  const isHod = user?.role?.toUpperCase() === "HOD";
-  const isProvost = user?.role?.toUpperCase() === "PROVOST";
-  const isDean = user?.role?.toUpperCase() === "DEAN";
-  const isPgc = user?.role?.toUpperCase() === "PGCORD";
+  const isHod = hasRole(Role.HOD);
+  const isProvost = hasRole(Role.PROVOST);
+  const isDean = hasRole(Role.DEAN);
+  const isPgc = hasRole(Role.PG_COORDINATOR);
 
   const { toast } = useToast();
   const noSessionWarnedRef = useRef(false);
 
-  const [scoreSheetSaving, setScoreSheetSaving] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewStudentId, setViewStudentId] = useState<string | null>(null);
-  const [scoreSheetOpen, setScoreSheetOpen] = useState(false);
-  const [initialRubricCriteria, setInitialRubricCriteria] = useState<
-    any | null
-  >(null);
-  const [currentRubricDoc, setCurrentRubricDoc] = useState<any | null>(null);
 
   const [degreeTab, setDegreeTab] = useState<"MSc" | "PhD">("MSc");
 
@@ -136,6 +145,7 @@ const StudentSessionManagement = () => {
     { _id: string; sessionName: string }[]
   >([]);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [students, setStudents] = useState<StudentFromAPI[]>([]);
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
@@ -148,6 +158,19 @@ const StudentSessionManagement = () => {
   );
 
   const selectedDefenseLabel = getLabelFromKey(selectedDefense, defenseOptions);
+
+  const displayStageLabel = useMemo(() => {
+    if (!isProvost) return selectedDefenseLabel;
+
+    const matchingStage = defenseOptions.find(
+      (opt) =>
+        debouncedSearch &&
+        (opt.toLowerCase() === debouncedSearch.toLowerCase() ||
+          (debouncedSearch.length >= 3 &&
+            opt.toLowerCase().includes(debouncedSearch.toLowerCase())))
+    );
+    return matchingStage ?? "All Stages";
+  }, [isProvost, selectedDefenseLabel, debouncedSearch, defenseOptions]);
 
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [facultiesLoading, setFacultiesLoading] = useState(false);
@@ -376,7 +399,21 @@ const StudentSessionManagement = () => {
         return;
       }
 
-      const stageSeg = getStageKey(selectedDefense);
+      // If provost, we try to detect the stage from the search query
+      let stageSeg = getStageKey(selectedDefense);
+      if (isProvost) {
+        stageSeg = ""; // Default to all stages for provost
+        if (debouncedSearch) {
+          const matchingStage = defenseOptions.find(opt => 
+            opt.toLowerCase() === debouncedSearch.toLowerCase() ||
+            (debouncedSearch.length >= 3 && opt.toLowerCase().includes(debouncedSearch.toLowerCase()))
+          );
+          if (matchingStage) {
+            stageSeg = getStageKey(matchingStage);
+          }
+        }
+      }
+
       const levelSeg = degreeTab === "MSc" ? "msc" : "phd";
 
       const url = `${baseUrl}/student/${levelSeg}/${encodeURIComponent(
@@ -385,7 +422,7 @@ const StudentSessionManagement = () => {
         selectedSession
       )}?page=${page}&limit=${itemsPerPage}${
         stageSeg ? `&stage=${encodeURIComponent(stageSeg)}` : ""
-      }`;
+      }${debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`;
  console.log("url", url);
  
       try {
@@ -445,6 +482,7 @@ const StudentSessionManagement = () => {
     selectedDefense,
     toast,
     isDean,
+    debouncedSearch,
   ]);
 
   const departmentNameToPass = (() => {
@@ -593,200 +631,32 @@ const StudentSessionManagement = () => {
     }
   };
 
-  const handleScoreSheetPublish = async (payload: {
-    criteria: Criterion[];
-  }) => {
-    if (
-      !payload?.criteria ||
-      !Array.isArray(payload.criteria) ||
-      payload.criteria.length === 0
-    ) {
-      toast({
-        title: "No criteria",
-        description: "Create at least one criterion before publishing.",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    const body = {
-      criteria: payload.criteria.map((c) => ({
-        name: c.title ?? String(c.title || ""),
-        weight: Number(c.percentage || 0),
-      })),
-      departmentId: selectedDepartmentForDefense || undefined,
-      stage: selectedDefense || undefined,
-    };
 
-    const url = isProvost
-      ? `${baseUrl}/defence/score-sheet`
-      : `${baseUrl}/defence/dept-score-sheet`;
 
-    setScoreSheetSaving(true);
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(body),
-      });
 
-      const text = await res.text();
-      console.log("Score sheet publish response:", text);
-      let parsed: any = null;
-      try {
-        parsed = text ? JSON.parse(text) : null;
-      } catch {
-        parsed = text;
-      }
+  const filteredStudents = useMemo(() => {
+    if (!search.trim()) return students;
+    const term = search.toLowerCase().trim();
+    return students.filter((s) => {
+      const fullName = `${s.user?.firstName ?? ""} ${s.user?.lastName ?? ""}`.toLowerCase();
+      const matric = (s.matricNo ?? "").toLowerCase();
+      const topic = (s.projectTopic ?? "").toLowerCase();
+      const dept = (s.department ?? "").toLowerCase();
+      const faculty = (s.faculty ?? "").toLowerCase();
 
-      const createdId =
-        parsed?._id ??
-        parsed?.id ??
-        parsed?.data?._id ??
-        parsed?.data?.id ??
-        (res.headers.get("location")
-          ? String(res.headers.get("location")).split("/").pop()
-          : undefined);
-
-      let finalDoc: any = null;
-      if (createdId) {
-        try {
-          // optional GET : omitted to keep simple; fallback to parsed
-        } catch (getErr) {
-          console.warn(
-            "[publish] failed fetching rubric by id, falling back to POST body:",
-            getErr
-          );
-          finalDoc = parsed;
-        }
-      } else {
-        finalDoc = parsed;
-      }
-
-      const apiCriteria = Array.isArray(finalDoc?.criteria)
-        ? finalDoc.criteria
-        : Array.isArray(finalDoc?.data?.criteria)
-        ? finalDoc.data.criteria
-        : Array.isArray(parsed?.criteria)
-        ? parsed.criteria
-        : [];
-
-      const mappedCriteria: Criterion[] = apiCriteria.map((c: any) => ({
-        title: String(c.name ?? c.title ?? ""),
-        percentage: Number(c.weight ?? c.percentage ?? 0),
-        id: c._id ?? c.id ?? undefined,
-      }));
-
-      setInitialRubricCriteria(mappedCriteria);
-      setCurrentRubricDoc(finalDoc ?? null);
-
-      if (!res.ok) {
-        let errText = `Server responded ${res.status}`;
-        try {
-          const j = typeof parsed === "object" ? parsed : null;
-          if (j) errText = j?.message || j?.error || JSON.stringify(j);
-          else errText = String(parsed ?? errText);
-        } catch {}
-        throw new Error(errText);
-      }
-
-      toast({
-        title: "Rubric published",
-        description: "Score sheet published and attached to the schedule.",
-        variant: "default",
-      });
-      setScoreSheetOpen(false);
-    } catch (err: any) {
-      console.error("Failed publishing score sheet:", err);
-      toast({
-        title: "Publish failed",
-        description: err?.message ?? String(err),
-        variant: "destructive",
-      });
-    } finally {
-      setScoreSheetSaving(false);
-    }
-  };
-
-  const handleDeleteCriterion = async (criterionId: string) => {
-    if (!criterionId) return;
-
-    try {
-      setInitialRubricCriteria((prev) =>
-        prev?.filter((c) => c.id !== criterionId)
+      return (
+        fullName.includes(term) ||
+        matric.includes(term) ||
+        topic.includes(term) ||
+        dept.includes(term) ||
+        faculty.includes(term)
       );
+    });
+  }, [students, search]);
 
-      const url = `${baseUrl}/defence/dept-score-sheet/delete/${encodeURIComponent(
-        criterionId
-      )}`;
-      const res = await fetch(url, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      const text = await res.text();
-      let parsed: any = null;
-      try {
-        parsed = text ? JSON.parse(text) : null;
-      } catch {
-        parsed = text;
-      }
-      console.log("[deleteCriterion] status:", res.status, parsed);
-
-      if (!res.ok) throw new Error(parsed?.message ?? `HTTP ${res.status}`);
-
-      toast({
-        title: "Deleted",
-        description: "Criterion removed.",
-        variant: "default",
-      });
-
-      setCurrentRubricDoc((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          criteria: (prev.criteria ?? []).filter(
-            (c: any) => String(c._id ?? c.id) !== String(criterionId)
-          ),
-        };
-      });
-    } catch (err: any) {
-      console.error("[deleteCriterion] failed:", err);
-      toast({
-        title: "Delete failed",
-        description: err?.message ?? String(err),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const filtered = useMemo(() => {
-    const term = search.toLowerCase();
-    return students
-      .filter((s) => (s.currentStage ?? "").toString() === selectedDefense)
-      .filter((s) => {
-        const fullName = s.user
-          ? `${s.user.firstName} ${s.user.lastName}`.toLowerCase()
-          : "";
-        return (
-          s.matricNo.toLowerCase().includes(term) ||
-          fullName.includes(term) ||
-          s.projectTopic.toLowerCase().includes(term)
-        );
-      });
-  }, [students, search, selectedDefense]);
-
-  const totalPages = Math.max(1, Math.ceil(totalStudents / itemsPerPage));
-  const paginated = filtered.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  );
+  const totalPages = Math.max(1, Math.ceil((search.trim() ? filteredStudents.length : totalStudents) / itemsPerPage));
+  const paginated = search.trim() ? filteredStudents.slice((page - 1) * itemsPerPage, page * itemsPerPage) : students;
 
   const closeDefenseModal = () => {
     setDefenseModalOpen(false);
@@ -941,21 +811,11 @@ const StudentSessionManagement = () => {
           </div>
 
           <h2 className="mt-4 text-2xl font-bold text-gray-900">
-            {degreeTab} Ready for {selectedDefenseLabel}
+            {degreeTab} Ready for {displayStageLabel}
           </h2>
         </div>
 
-        <div className="flex items-start gap-3">
-          {(isPgc || isProvost) && (
-            <Button
-              onClick={() => setScoreSheetOpen(true)}
-              className="bg-amber-700 hover:bg-amber-800 text-white px-4 py-2 rounded-md flex items-center gap-2"
-            >
-              <Plus size={16} />
-              <span>Create ScoreSheet</span>
-            </Button>
-          )}
-        </div>
+
       </div>
 
       {/* Card containing filters + table */}
@@ -963,42 +823,58 @@ const StudentSessionManagement = () => {
         {/* Filters grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           {/* Stage select */}
-          <div>
-            <Label htmlFor="defense-select" className="text-sm text-gray-600">
-              Stage
-            </Label>
-            <Select
-              value={selectedDefense}
-              onValueChange={(v) => {
-                setSelectedDefense(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger id="defense-select" className="w-full">
-                <SelectValue placeholder={selectedDefenseLabel} />
-              </SelectTrigger>
-              <SelectContent>
-                {defenseOptions.map((opt) => (
-                  <SelectItem key={opt} value={getStageKey(opt)}>
-                    {opt}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!isProvost && (
+            <div>
+              <Label htmlFor="defense-select" className="text-sm text-gray-600">
+                Stage
+              </Label>
+              <Select
+                value={selectedDefense}
+                onValueChange={(v) => {
+                  setSelectedDefense(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger id="defense-select" className="w-full">
+                  <SelectValue placeholder={selectedDefenseLabel} />
+                </SelectTrigger>
+                <SelectContent>
+                  {defenseOptions.map((opt) => (
+                    <SelectItem key={opt} value={getStageKey(opt)}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Search */}
-          <div className="md:col-span-1">
+          <div className={isProvost ? "md:col-span-2" : "md:col-span-1"}>
             <Label className="text-sm text-gray-600">Search</Label>
-            <Input
-              placeholder="Search Mat. No, Name or Topic"
-              className="w-full"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-            />
+            <div className="relative">
+              <Input
+                placeholder={
+                  isProvost
+                    ? "Search Mat. No, Name, Topic or Stage"
+                    : "Search Mat. No, Name or Topic"
+                }
+                className="w-full pr-10"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Session */}
@@ -1115,7 +991,7 @@ const StudentSessionManagement = () => {
                 Boolean(user?.department && departments.length === 1)
               } // optional: disable if single assigned dept
             >
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
                     departmentsLoading
@@ -1149,7 +1025,7 @@ const StudentSessionManagement = () => {
         <div className="mt-4 flex items-center justify-between">
           <div />
           <div className="flex items-center gap-3">
-            {!isProvost && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && !isDean && (
+            {!isProvost && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && (
               <Button
                 className="bg-amber-700 hover:bg-amber-800 text-white"
                 onClick={() => {
@@ -1170,67 +1046,75 @@ const StudentSessionManagement = () => {
               <tr className="bg-gray-50">
                 {isProvost ? (
                   <>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Matric No
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Full Name
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Project Topic
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Current Stage
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Department
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Faculty
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Assign
                     </th>
                   </>
                 ) : isDean ? (
                   <>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Matric No
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Full Name
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Project Topic
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Current Stage
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Department
+                    </th>
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
+                      Faculty
+                    </th>
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
+                      Assign
                     </th>
                   </>
                 ) : (
                   <>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       MAT NO.
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Full Name
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Topic
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
-                      Score for {selectedDefenseLabel}
-                    </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    {!isPgc && (
+                      <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
+                        Score for {selectedDefenseLabel}
+                      </th>
+                    )}
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       1st Supervisor
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       2nd Supervisor
                     </th>
-                    <th className="p-4 text-sm text-gray-600 font-medium">
+                    <th className="p-2 sm:p-4 text-xs sm:text-sm text-gray-600 font-medium">
                       Assign
                     </th>
                   </>
@@ -1245,11 +1129,11 @@ const StudentSessionManagement = () => {
                 if (isProvost || isDean) {
                   return (
                     <tr key={s._id} className={rowBg}>
-                      <td className="p-4 border-t text-sm">{s.matricNo}</td>
-                      <td className="p-4 border-t">
+                      <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">{s.matricNo}</td>
+                      <td className="p-2 sm:p-4 border-t">
                         <button
                           title="View student"
-                          className="text-amber-700 underline capitalize"
+                          className="text-amber-700 underline capitalize text-xs sm:text-sm"
                           onClick={() => {
                             setViewStudentId(s._id);
                             setViewModalOpen(true);
@@ -1260,15 +1144,17 @@ const StudentSessionManagement = () => {
                             : ""}
                         </button>
                       </td>
-                      <td className="p-4 border-t text-sm">{s.projectTopic}</td>
-                      <td className="p-4 border-t text-sm">{s.currentStage}</td>
-                      <td className="p-4 border-t text-sm">{s.department}</td>
-                      <td className="p-4 border-t text-sm">{s.faculty}</td>
-                      {isProvost && (
-                        <td className="p-4 border-t">
+                      <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">{s.projectTopic}</td>
+                      <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">
+                        {getLabelFromKey(s.currentStage, defenseOptions)}
+                      </td>
+                      <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">{s.department}</td>
+                      <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">{s.faculty}</td>
+                      {(isProvost || isDean) && (
+                        <td className="p-2 sm:p-4 border-t">
                           <Button
                             size="sm"
-                            className="bg-amber-700 text-white rounded-md px-4 py-1"
+                            className="bg-amber-700 text-white rounded-md px-2 py-1 text-xs sm:px-4 sm:text-sm"
                             onClick={() => {
                               setCurrentStudentId(s._id);
                               setAssignCollegeRepOpen(true);
@@ -1284,12 +1170,12 @@ const StudentSessionManagement = () => {
 
                 return (
                   <tr key={s._id} className={rowBg}>
-                    <td className="p-4 border-t text-sm">{s.matricNo}</td>
-                    <td className="p-4 border-t">
+                    <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">{s.matricNo}</td>
+                    <td className="p-2 sm:p-4 border-t">
                       {isPgc ? (
                         <button
                           title="Edit student"
-                          className="text-amber-700 underline capitalize"
+                          className="text-amber-700 underline capitalize text-xs sm:text-sm"
                           onClick={() => {
                             setCurrentStudentId(s._id);
                             setEditModalOpen(true);
@@ -1302,7 +1188,7 @@ const StudentSessionManagement = () => {
                       ) : s.user ? (
                         <button
                           title="View student"
-                          className="text-amber-700 underline capitalize"
+                          className="text-amber-700 underline capitalize text-xs sm:text-sm"
                           onClick={() => {
                             setViewStudentId(s._id);
                             setViewModalOpen(true);
@@ -1317,21 +1203,23 @@ const StudentSessionManagement = () => {
                       )}
                     </td>
 
-                    <td className="p-4 border-t capitalize">
+                    <td className="p-2 sm:p-4 border-t capitalize text-xs sm:text-sm">
                       {s.projectTopic}
                     </td>
-                    <td className="p-4 border-t">{score ?? "—"}</td>
-                    <td className="p-4 border-t">
+                    {!isPgc && (
+                      <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">{score ?? "—"}</td>
+                    )}
+                    <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">
                       {s.majorSupervisor || "Not Assigned"}
                     </td>
-                    <td className="p-4 border-t">
+                    <td className="p-2 sm:p-4 border-t text-xs sm:text-sm">
                       {s.minorSupervisor || "Not Assigned"}
                     </td>
 
-                    <td className="p-4 border-t">
+                    <td className="p-2 sm:p-4 border-t">
                       <Button
                         size="sm"
-                        className="bg-amber-700 text-white rounded-md px-4 py-1"
+                        className="bg-amber-700 text-white rounded-md px-2 py-1 text-xs sm:px-4 sm:text-sm"
                         onClick={() => {
                           setCurrentStudentId(s._id);
                           setAssignModalOpen(true);
@@ -1347,7 +1235,7 @@ const StudentSessionManagement = () => {
               {paginated.length === 0 && (
                 <tr>
                   <td
-                    colSpan={isProvost ? 7 : isHod ? 11 : 10}
+                    colSpan={isProvost || isDean ? 7 : (isPgc ? 6 : 7)}
                     className="text-center p-8 text-gray-500"
                   >
                     No students found.
@@ -1400,12 +1288,10 @@ const StudentSessionManagement = () => {
         onClose={closeDefenseModal}
         defenseStage={defenseStage}
         defenseLabel={selectedDefenseLabel}
-        schedulerRole={isProvost ? "provost" : isHod ? "hod" : "pgcord"}
         studentIds={defenseStudentIds}
         program={degreeTab}
         session={selectedSession}
         baseUrl={baseUrl}
-        token={token}
         department={departmentNameToPass}
         onScheduled={(resp) => {
           console.log("schedule created:", resp);
@@ -1417,7 +1303,6 @@ const StudentSessionManagement = () => {
         onClose={() => setEditModalOpen(false)}
         studentId={currentStudentId}
         baseUrl={baseUrl}
-        token={token}
         onUpdated={(updated) =>
           setStudents((prev) =>
             prev.map((p) =>
@@ -1434,47 +1319,10 @@ const StudentSessionManagement = () => {
         onClose={() => setViewModalOpen(false)}
         studentId={viewStudentId ?? ""}
         baseUrl={import.meta.env.VITE_BACKEND_URL}
-        token={token}
         watermarkUrl={waterMark}
       />
 
-      {(isPgc || isProvost) && scoreSheetOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center"
-        >
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setScoreSheetOpen(false)}
-          />
-          <div
-            className="relative z-10 max-w-3xl w-full mx-4 md:mx-0 bg-white rounded-lg shadow-xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b">
-              <h3 className="text-lg font-medium">Score Sheet Generator</h3>
-              <button
-                onClick={() => setScoreSheetOpen(false)}
-                aria-label="Close score sheet modal"
-                className="p-1 rounded hover:bg-gray-100"
-              >
-                <X />
-              </button>
-            </div>
 
-            <div className="p-4">
-              <ScoreSheetGenerator
-                onPublish={handleScoreSheetPublish}
-                saving={scoreSheetSaving}
-                initialCriteria={initialRubricCriteria}
-                onDeleteCriterion={handleDeleteCriterion}
-                rubricId={currentRubricDoc?._id ?? null}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

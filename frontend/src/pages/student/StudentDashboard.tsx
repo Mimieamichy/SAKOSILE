@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function StudentDashboard() {
-  const { user, token } = useAuth();
+  const { user, token } = useAuthStore();
   const userName = user?.userName || "Student";
   const [loadingProject, setLoadingProject] = useState(false);
   const [project, setProject] = useState<any>(null);

@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/pages/AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 
 interface Props {
   isOpen: boolean;
@@ -21,7 +21,7 @@ interface Props {
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function UpdatePasswordModal({ isOpen, onClose }: Props) {
-  const { token } = useAuth();
+  const { token } = useAuthStore();
   const { toast } = useToast();
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);

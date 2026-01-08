@@ -8,7 +8,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 
 interface AddStudentFormProps {
@@ -30,7 +30,7 @@ const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
   const [sessionName, setSessionName] = useState("");
   const [projectTopic, setProjectTopic] = useState("");
 
-  const { token } = useAuth(); // 🔐 Get token from auth context
+  const { token } = useAuthStore(); // 🔐 Get token from auth context
   const { toast } = useToast();
 
 

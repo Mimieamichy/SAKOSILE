@@ -1,4 +1,4 @@
-// src/pgc/ScoreSheetGenerator.tsx
+// src/faculty/ScoreSheetGenerator.tsx
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,81 +130,86 @@ export default function ScoreSheetGenerator({
         <label className="block text-sm font-medium mb-1">
           Scoring Criteria
         </label>
-        <div className="space-y-2">
-          {criteria.map((c, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <Input
-                value={c.title}
-                onChange={(e) => updateCriterion(i, { title: e.target.value })}
-                className="flex-1"
-                placeholder="Criterion name"
-              />
-              <Input
-                value={String(c.percentage)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "") {
-                    // if user clears the input, set to 0
-                    updateCriterion(i, { percentage: 0 });
-                  } else {
-                    const parsed = parseFloat(v);
-                    if (!Number.isNaN(parsed)) {
-                      updateCriterion(i, { percentage: parsed });
-                    }
-                  }
-                }}
-                className="w-24"
-                placeholder="%"
-                type="number"
-                min={0}
-                max={100}
-              />
-              {c.id ? (
-                // server-created item — call parent delete
-                <button
-                  onClick={async () => {
-                    if (!c.id) return;
-                    try {
-                      await onDeleteCriterion?.(c.id);
-                      // remove from local UI after parent confirms delete
-                      handleLocalAfterDelete(c.id, undefined);
-                    } catch (err) {
-                      console.error("delete error", err);
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="space-y-2 min-w-[400px] sm:min-w-0">
+            {criteria.map((c, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <Input
+                  value={c.title}
+                  onChange={(e) => updateCriterion(i, { title: e.target.value })}
+                  className="flex-1"
+                  placeholder="Criterion name"
+                />
+                <Input
+                  value={String(c.percentage)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "") {
+                      // if user clears the input, set to 0
+                      updateCriterion(i, { percentage: 0 });
+                    } else {
+                      const parsed = parseFloat(v);
+                      if (!Number.isNaN(parsed)) {
+                        updateCriterion(i, { percentage: parsed });
+                      }
                     }
                   }}
-                >
-                  Delete
-                </button>
-              ) : (
-                // not yet persisted item — just remove locally
-                <button
-                  onClick={() =>
-                    setCriteria((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="text-sm text-red-600 px-2 py-1"
-                  aria-label={`Remove criterion ${c.title}`}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
+                  className="w-24"
+                  placeholder="%"
+                  type="number"
+                  min={0}
+                  max={100}
+                />
+                {c.id ? (
+                  // server-created item — call parent delete
+                  <button
+                    onClick={async () => {
+                      if (!c.id) return;
+                      try {
+                        await onDeleteCriterion?.(c.id);
+                        // remove from local UI after parent confirms delete
+                        handleLocalAfterDelete(c.id, undefined);
+                      } catch (err) {
+                        console.error("delete error", err);
+                      }
+                    }}
+                    className="text-sm text-red-600 px-2 py-1"
+                  >
+                    Delete
+                  </button>
+                ) : (
+                  // not yet persisted item — just remove locally
+                  <button
+                    onClick={() =>
+                      setCriteria((prev) => prev.filter((_, j) => j !== i))
+                    }
+                    className="text-sm text-red-600 px-2 py-1"
+                    aria-label={`Remove criterion ${c.title}`}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="flex gap-2 mt-3">
-          <Input
-            placeholder="New criterion"
-            value={newCriterion}
-            onChange={(e) => setNewCriterion(e.target.value)}
-          />
-          <Input
-            placeholder="%"
-            value={newPercentage}
-            onChange={(e) => setNewPercentage(e.target.value)}
-            type="number"
-            className="w-24"
-          />
-          <Button onClick={handleAddCriterion}>Add</Button>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 mt-3">
+          <div className="flex gap-2 min-w-[400px] sm:min-w-0">
+            <Input
+              placeholder="New criterion"
+              value={newCriterion}
+              onChange={(e) => setNewCriterion(e.target.value)}
+            />
+            <Input
+              placeholder="%"
+              value={newPercentage}
+              onChange={(e) => setNewPercentage(e.target.value)}
+              type="number"
+              className="w-24"
+            />
+            <Button onClick={handleAddCriterion} className="bg-amber-700 hover:bg-amber-800 text-white">Add</Button>
+          </div>
         </div>
 
         <div
@@ -220,7 +225,7 @@ export default function ScoreSheetGenerator({
       {/* Preview: shows only the criteria created */}
       <div>
         <label className="block text-sm font-medium mb-1">Preview</label>
-        <div className="overflow-x-auto border rounded">
+        <div className="overflow-x-auto border rounded -mx-4 sm:mx-0">
           <table className="min-w-full text-sm">
             <thead>
               <tr>
@@ -254,6 +259,7 @@ export default function ScoreSheetGenerator({
         <Button
           onClick={handlePublish}
           disabled={!isTotalValid || criteria.length === 0 || saving}
+          className="bg-amber-700 hover:bg-amber-800 text-white"
         >
           {saving ? "Saving..." : "Publish Rubric"}
         </Button>

@@ -1,7 +1,6 @@
-// src/SupervisorDashboardShell.tsx
 import { useState, useRef, useEffect } from "react";
 import { Menu, Bell, Lock, Power } from "lucide-react";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
 import {
   Dialog,
@@ -11,39 +10,24 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import DeanDashboard from "./DeanDashboard";
-import MyStudentsPage from "../supervisor/MyStudentsPage";
-import NotificationCenter from "../NotificationCenter";
-
-import DefenseDayPage from "../DefenseDayPage";
 import UpdatePasswordModal from "../UpdatePasswordModal";
-import DeanFacultyTab from "./DeanFacultyTab";
-import StudentSessionManagement from "../provost&co/StudentSessionManagement";
-import { useNavigate } from "react-router-dom";
-
-export type DeanView =
-  | "dashboard"
-  | "studentSessionManagement"
-  | "myStudents"
-  | "facultyTab"
-  | "activityLog"
-  | "defenseDay"
-  | "notifications";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function DeanDashboardShell() {
-  const { user, logout, token } = useAuth();
-  const role = user?.role || "Dean";
+  const { user, logout, token } = useAuthStore();
+  const role = user?.roles?.[0] || "Dean";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const [currentView, setCurrentView] = useState<DeanView>("dashboard");
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const unreadCount = useNotificationStore((s) => s.unreadCount());
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
+  const notifications = useNotificationStore((s) => s.notifications);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Logout
@@ -64,30 +48,19 @@ export default function DeanDashboardShell() {
 
   useEffect(() => {
     if (token) {
-      fetchNotifications({ baseUrl, token });
+      const isInitialFetch = notifications.length === 0;
+      fetchNotifications({ baseUrl, token, silent: !isInitialFetch });
     }
   }, [token, fetchNotifications]);
 
- 
-
-  const renderView = () => {
-    switch (currentView) {
-      case "dashboard":
-        return <DeanDashboard />;
-      case "studentSessionManagement":
-        return <StudentSessionManagement />;
-      case "myStudents":
-        return <MyStudentsPage />;
-      case "facultyTab":
-        return <DeanFacultyTab />;
-      case "defenseDay":
-        return <DefenseDayPage />;
-      case "notifications":
-        return <NotificationCenter />;
-      default:
-        return null;
-    }
-  };
+  const navItems = [
+    { label: "Dean Overview", path: "/dean/overview" },
+    { label: "Faculty Lecturers", path: "/dean/faculty-lecturers" },
+    { label: "Student Management", path: "/dean/student-management" },
+    { label: "My Students", path: "/dean/my-students" },
+    { label: "Defense Page", path: "/dean/defense-day" },
+    { label: "Notifications", path: "/dean/notifications" },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -108,63 +81,20 @@ export default function DeanDashboardShell() {
             className="absolute top-16 left-4 bg-white shadow-lg rounded-lg p-4 w-56 z-20"
           >
             <ul className="space-y-2 text-gray-700">
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("dashboard");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Dashboard
-              </li>
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("facultyTab");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Faculty Lecturers
-              </li>
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("studentSessionManagement");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Student Management
-              </li>
-
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("myStudents");
-                  setIsMenuOpen(false);
-                }}
-              >
-                My Students
-              </li>
-
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("defenseDay");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Defense Page
-              </li>
-
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("notifications");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Notifications
-              </li>
+              {navItems.map((item) => (
+                <li
+                  key={item.path}
+                  className={`cursor-pointer hover:text-amber-700 ${
+                    location.pathname === item.path ? "text-amber-700 font-bold" : ""
+                  }`}
+                  onClick={() => {
+                    navigate(item.path);
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  {item.label}
+                </li>
+              ))}
             </ul>
           </div>
         )}
@@ -177,13 +107,13 @@ export default function DeanDashboardShell() {
           <div className="relative">
             <Bell
               className="w-6 h-6 text-gray-600 cursor-pointer"
-              onClick={() => setCurrentView("notifications")}
+              onClick={() => navigate("/dean/notifications")}
             />
             {unreadCount > 0 && (
               <span
                 className="absolute -top-1 cursor-pointer -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium leading-none text-white bg-amber-600 rounded-full"
                 aria-label={`${unreadCount} unread notifications`}
-                onClick={() => setCurrentView("notifications")}
+                onClick={() => navigate("/dean/notifications")}
               >
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
@@ -202,7 +132,7 @@ export default function DeanDashboardShell() {
 
       {/* Main Content */}
       <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {renderView()}
+        <Outlet />
       </main>
 
       {/* Reset Password Modal */}

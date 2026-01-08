@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/pages/AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 
 export interface NewHodData {
   title: string;
@@ -61,7 +61,7 @@ export default function AddHodModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const { token } = useAuthStore();
 
   // API lists + loading/errors
   const [faculties, setFaculties] = useState<Fac[]>([]);

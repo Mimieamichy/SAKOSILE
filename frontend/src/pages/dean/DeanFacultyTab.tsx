@@ -4,7 +4,8 @@ import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 import { useToast } from "@/hooks/use-toast";
 
 interface FacultyStaff {
@@ -23,21 +24,13 @@ interface FacultyStaff {
   raw?: any;
 }
 
-const baseUrl = import.meta.env.VITE_BACKEND_URL 
+const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function DeanFacultyTab() {
-  const { token, user } = useAuth();
+  const { token, user, hasRole } = useAuthStore();
   const { toast } = useToast();
 
-  // role detection: support either user.role string or user.roles array
-  const roleStr = (
-    (typeof user?.role === "string" && user.role) ||
-    (Array.isArray((user as any)?.roles) && (user as any).roles[0]) ||
-    ""
-  )
-    .toString()
-    .toLowerCase();
-  const isDean = roleStr === "dean" || roleStr.includes("dean");
+  const isDean = hasRole(Role.DEAN);
 
   const [staff, setStaff] = useState<FacultyStaff[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,15 +92,20 @@ export default function DeanFacultyTab() {
 
         // normalize roles from both places
         const userRoles: string[] = Array.isArray(r.user?.roles)
-          ? r.user.roles.map((x: any) => String(x).toLowerCase())
+          ? r.user.roles
           : Array.isArray(r.roles)
-          ? r.roles.map((x: any) => String(x).toLowerCase())
+          ? r.roles
           : [];
 
         const isFacultyRep =
-          userRoles.includes("faculty_pg_rep") ||
+          userRoles.some(
+            (role) =>
+              role.toLowerCase() === Role.FACULTY_PG_REP ||
+              role.toLowerCase() === "faculty_pg_rep"
+          ) ||
           !!r.isFacultyRep ||
           !!r.facultyRep ||
+          !!r.faculty_rep ||
           false;
 
         return {
@@ -146,10 +144,16 @@ export default function DeanFacultyTab() {
   const currentFacultyRep = useMemo(() => {
     return (
       staff.find((s) => {
-        const roles = Array.isArray(s.raw?.user?.roles)
-          ? s.raw.user.roles.map((r: any) => String(r).toLowerCase())
+        const roles: string[] = Array.isArray(s.raw?.user?.roles)
+          ? s.raw.user.roles
           : [];
-        return roles.includes("faculty_pg_rep") || !!s.isFacultyRep;
+        return (
+          roles.some(
+            (r) =>
+              r.toLowerCase() === Role.FACULTY_PG_REP ||
+              r.toLowerCase() === "faculty_pg_rep"
+          ) || !!s.isFacultyRep
+        );
       }) ?? null
     );
   }, [staff]);

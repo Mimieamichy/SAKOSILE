@@ -1,9 +1,9 @@
 // src/provost/ProvostDashboardOverview.tsx
 import React, { useEffect, useState } from "react";
-import { UserPlus, Calendar, Users, FileText } from "lucide-react";
+import { UserPlus, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 
 interface HodDashboardOverviewProps {
@@ -13,16 +13,15 @@ interface HodDashboardOverviewProps {
 export default function ProvostDashboardOverview({
   onCreateSessionClick,
 }: HodDashboardOverviewProps) {
-  const { user, token } = useAuth(); // token optional depending on your provider
-  const toast = useToast().toast;
+  const { user, token } = useAuthStore(); 
+  const { toast } = useToast();
 
   const [externalCount, setExternalCount] = useState<number | null>(null);
   const [collegeRepsCount, setCollegeRepsCount] = useState<number | null>(null);
   const [upcomingDefencesCount, setUpcomingDefencesCount] = useState<number | null>(null);
   const [loadingCounts, setLoadingCounts] = useState(false);
 
-  // Score sheets is constant 1
-  const scoreSheetsCount = 1;
+
 
   const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -82,7 +81,7 @@ export default function ProvostDashboardOverview({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* External Examiners */}
         <div className="bg-white rounded-xl shadow-md p-6 flex items-center gap-4 border border-gray-100 hover:shadow-lg transition-all">
           <div className="bg-amber-50 p-3 rounded-full">
@@ -125,19 +124,7 @@ export default function ProvostDashboardOverview({
           </div>
         </div>
 
-        {/* Score Sheets (constant) */}
-        <div className="bg-white rounded-xl shadow-md p-6 flex items-center gap-4 border border-gray-100 hover:shadow-lg transition-all">
-          <div className="bg-amber-50 p-3 rounded-full">
-            <FileText className="w-10 h-10 text-amber-700" />
-          </div>
-          <div className="flex-1">
-            <div className="text-sm text-gray-500">Score Sheets</div>
-            <div className="text-xl font-semibold text-gray-800">
-              {scoreSheetsCount}
-            </div>
-            <div className="text-sm text-gray-400">general template created</div>
-          </div>
-        </div>
+
       </div>
 
       <div className="flex justify-end">

@@ -1,7 +1,6 @@
 // src/dean/DeanDashboard.tsx
 import React, { useEffect, useState } from "react";
 import { Users, Building2Icon, BookOpen, CalendarDays } from "lucide-react";
-import { useAuth } from "../AuthProvider";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -33,11 +32,13 @@ function parseCountResponse(body: any): number {
   return 0;
 }
 
+import { useAuthStore } from "@/store/authStore";
+
 export default function DeanDashboard() {
   const [metrics, setMetrics] = useState<Metrics>(defaultMetrics);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, token } = useAuth();
+  const { user, token } = useAuthStore();
   const faculty = (user as any)?.faculty ?? ""; // will append as query if available
 
   useEffect(() => {
