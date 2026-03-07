@@ -8,9 +8,15 @@ import { getPermissionsFromRoles } from '../utils/helpers';
 import { Role } from '../utils/permissions';
 
 
+export const blacklistTokens: string[] = [];
+
+
+
 export default class AuthService {
   static async login(email: string, password: string) {
+
     const user = await User.findOne({ email });
+
     if (!user || !(await user.comparePassword(password))) {
       throw new Error('Invalid credentials');
     }
@@ -18,32 +24,54 @@ export default class AuthService {
     const roles = user.roles as Role[];
     const permissions = getPermissionsFromRoles(roles);
 
-    // Defaults
-    let department = "none"
-    let faculty = "none"
-    let lecturerId = "none"
+    const isSuperAdmin = roles.includes(Role.SUPER_ADMIN);
 
+    // Non platform users must belong to a school
+    if (!isSuperAdmin && !user.schoolId) {
+      throw new Error("User is not assigned to a school");
+    }
+
+    let department = "none";
+    let faculty = "none";
+    let lecturerId = "none";
+
+    // STUDENT LOGIC
     if (roles.includes(Role.STUDENT)) {
+
       const student = await Student.findOne({ user: user._id });
+
       if (!student) {
         throw new Error('Inconsistency: user has STUDENT role but no Student record found');
       }
+
       department = student.department;
       faculty = student.faculty;
     }
 
-    if (roles.includes(Role.LECTURER) || roles.includes(Role.HOD) ||  roles.includes(Role.PROVOST) || roles.includes(Role.PGCOORD || Role.DEAN)) {
+    // LECTURER / STAFF LOGIC
+    if (
+      roles.includes(Role.LECTURER) ||
+      roles.includes(Role.HOD) ||
+      roles.includes(Role.PROVOST) ||
+      roles.includes(Role.PGCOORD) ||
+      roles.includes(Role.DEAN)
+    ) {
+
       const lecturer = await Lecturer.findOne({ user: user._id });
+
       if (!lecturer) {
-        throw new Error('Inconsistency: user has LECTURER role but no Lecturer record found');
+        throw new Error('Inconsistency: user has lecturer role but no Lecturer record found');
       }
-      department = lecturer.department || "none"
-      faculty = lecturer.faculty || "none"
-      lecturerId = String(lecturer._id) || "none"
+
+      department = lecturer.department || "none";
+      faculty = lecturer.faculty || "none";
+      lecturerId = String(lecturer._id);
     }
+
     const token = jwt.sign(
       {
         id: user._id,
+        schoolId: user.schoolId || null, // null for super admin
         roles,
         permissions,
         department,
@@ -61,16 +89,17 @@ export default class AuthService {
         lastName: user.lastName,
         roles,
         isPanelMember: user.isPanelMember,
+        schoolId: user.schoolId || null,
         department,
         faculty,
         lecturer: lecturerId
       },
-      token,
+      token
     };
   }
 
-  static async logout(_userId: string) {
-    // No-op for JWT; client should drop token.
+  static async logout(token: string) {
+    blacklistTokens.push(token);
     return;
   }
 

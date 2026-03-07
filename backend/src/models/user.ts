@@ -11,6 +11,7 @@ export interface IUser extends Document {
   title?:string;
   permissions?: string[];
   isPanelMember: Boolean;
+  schoolId: mongoose.Types.ObjectId;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -18,11 +19,12 @@ const userSchema = new Schema<IUser>(
   {
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    roles: { type: [String], required: true, default: [Role.GENERAL] }, // Default role is 'GENERAL'
+    roles: { type: [String], required: true, default: [Role.GENERAL] }, 
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     title: { type: String, required: false },
     isPanelMember: { type: Boolean, default: false },
+    schoolId: { type: Schema.Types.ObjectId, ref: 'School', required: false },
   },
   { timestamps: true }
 );

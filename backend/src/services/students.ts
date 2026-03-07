@@ -85,9 +85,9 @@ export default class StudentService {
         return findOneFormatted(Student, studentId)
     }
 
-   static async getOneStudentByUser(userId: string) {
-  return Student.findOne({ user: new mongoose.Types.ObjectId(userId) })
-}
+    static async getOneStudentByUser(userId: string) {
+        return Student.findOne({ user: new mongoose.Types.ObjectId(userId) })
+    }
 
 
     static async editStudent(studentId: string, updateData: Partial<{

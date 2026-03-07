@@ -1,6 +1,7 @@
 const JWT_SECRET = process.env.JWT_SECRET!;
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { blacklistTokens } from '../services/auth';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -10,6 +11,13 @@ export interface AuthenticatedRequest extends Request {
     [key: string]: any;
   };
 }
+
+
+
+
+   
+
+
 
 /**
  * Middleware to authenticate requests using JWT.
@@ -35,9 +43,20 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   // console.log('Toekn:',token)
 
   try {
+
+    if (blacklistTokens.length > 1000) {
+      blacklistTokens.splice(0, 500);
+    }
+
+    if (blacklistTokens.includes(token)) {
+      res.status(401).json({ success: false, message: 'Token has been revoked' });
+      return;
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET) as {
       id: string;
-      role: string[]; 
+      role: string[];
+      schoolId?: string; 
       permissions?: string[];
       [key: string]: any;
     };
@@ -45,9 +64,9 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const user = {
       id: decoded.id,
       role: decoded.roles,
+      schoolId: decoded.schoolId || null,
       permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
     };
-
     (req as AuthenticatedRequest).user = user;
 
     next();

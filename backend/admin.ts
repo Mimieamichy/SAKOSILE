@@ -38,8 +38,8 @@ async function createAdmin() {
     const admin = await User.create({
       email,
       password: password,
-      roles: [Role.ADMIN, Role.GENERAL],
-      firstName: 'System',
+      roles: [Role.SUPER_ADMIN, Role.GENERAL],
+      firstName: 'Super',
       lastName: 'Admin',
       isPanelMember: false,
     });
