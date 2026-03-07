@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import StudentDashboardShell from "./pages/student/StudentDashboardShell";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import UploadWorkPage from "./pages/student/UploadWorkPage";
+import StudentHelpPage from "./pages/student/StudentHelpPage";
 import DashboardShell from "./pages/DashboardShell";
 import DeanDashboardShell from "./pages/dean/DeanDashboardShell";
 import DeanDashboard from "./pages/dean/DeanDashboard";
@@ -32,6 +33,15 @@ import StudentSessionManagement from "./pages/provost&co/StudentSessionManagemen
 import ProvostActivityLog from "./pages/provost&co/ProvostActivityLog";
 import NotificationCenter from "./pages/NotificationCenter";
 import FacultyScoreSheets from "./pages/faculty/FacultyScoreSheets";
+import SuperAdminDashboardShell from "./pages/superadmin/SuperAdminDashboardShell";
+import SuperAdminOverview from "./pages/superadmin/SuperAdminOverview";
+import SchoolsManagement from "./pages/superadmin/SchoolsManagement";
+import Payments from "./pages/superadmin/Payments";
+import Users from "./pages/superadmin/Users";
+import Analytics from "./pages/superadmin/Analytics";
+import Support from "./pages/superadmin/Support";
+import SystemSettings from "./pages/superadmin/SystemSettings";
+import AuditLogs from "./pages/superadmin/AuditLogs";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +62,26 @@ const App = () => (
               </ProtectedRoute>
             } 
           />
+
+          <Route
+            path="/superadmin"
+            element={
+              <ProtectedRoute allowedRoles={[Role.SUPER_ADMIN]}>
+                <SuperAdminDashboardShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="overview" replace />} />
+            <Route path="overview" element={<SuperAdminOverview />} />
+            <Route path="schools" element={<SchoolsManagement />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="users" element={<Users />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="support" element={<Support />} />
+            <Route path="settings" element={<SystemSettings />} />
+            <Route path="audit-logs" element={<AuditLogs />} />
+            <Route path="notifications" element={<NotificationCenter />} />
+          </Route>
           
           <Route 
             path="/portal" 
@@ -101,6 +131,7 @@ const App = () => (
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<StudentDashboard />} />
             <Route path="upload-work" element={<UploadWorkPage />} />
+            <Route path="help" element={<StudentHelpPage />} />
             <Route path="notifications" element={<NotificationCenter />} />
           </Route>
           

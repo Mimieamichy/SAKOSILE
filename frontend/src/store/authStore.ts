@@ -22,6 +22,7 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<UserProfile>;
+  demoLogin: (role?: string) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: Role | Role[] | string | string[]) => boolean;
@@ -86,6 +87,22 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      demoLogin: (role = "super_admin") => {
+        const demoUser: UserProfile = {
+          userName: "Demo Super Admin",
+          role: role,
+          roles: [role],
+          email: "superadmin@example.com",
+          id: "demo-superadmin-1",
+          department: "none",
+          faculty: "none",
+          lecturerId: undefined,
+        };
+        const demoToken = "demo-token";
+        set({ user: demoUser, token: demoToken, isAuthenticated: true });
+        axios.defaults.headers.common["Authorization"] = `Bearer ${demoToken}`;
+      },
+
       logout: () => {
         set({ user: null, token: null, isAuthenticated: false });
         delete axios.defaults.headers.common["Authorization"];
@@ -113,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
         
         const roles = user.roles;
         
+        if (roles.includes("super_admin")) return "/superadmin";
         if (roles.includes("admin")) return "/admin";
         if (roles.includes("dean")) return "/dean";
         if (roles.includes("hod") || roles.includes("pgcord") || roles.includes("provost")) return "/portal";

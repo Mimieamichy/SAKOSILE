@@ -153,24 +153,16 @@ const StudentSessionManagement = () => {
 
   const [selectedDefense, setSelectedDefense] = useState<string>(
     isProvost
-      ? getStageKey(defenseOptions[Math.min(3, defenseOptions.length - 1)])
+      ? "all"
       : getStageKey(defenseOptions[0])
   );
 
-  const selectedDefenseLabel = getLabelFromKey(selectedDefense, defenseOptions);
+  const selectedDefenseLabel = useMemo(() => {
+    if (selectedDefense === "all") return "All Stages";
+    return getLabelFromKey(selectedDefense, defenseOptions);
+  }, [selectedDefense, defenseOptions]);
 
-  const displayStageLabel = useMemo(() => {
-    if (!isProvost) return selectedDefenseLabel;
-
-    const matchingStage = defenseOptions.find(
-      (opt) =>
-        debouncedSearch &&
-        (opt.toLowerCase() === debouncedSearch.toLowerCase() ||
-          (debouncedSearch.length >= 3 &&
-            opt.toLowerCase().includes(debouncedSearch.toLowerCase())))
-    );
-    return matchingStage ?? "All Stages";
-  }, [isProvost, selectedDefenseLabel, debouncedSearch, defenseOptions]);
+  const displayStageLabel = selectedDefenseLabel;
 
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [facultiesLoading, setFacultiesLoading] = useState(false);
@@ -182,11 +174,11 @@ const StudentSessionManagement = () => {
   const [departmentsError, setDepartmentsError] = useState<string | null>(null);
 
   useEffect(() => {
-    const apiOptions = defenseOptions.map((d) => getStageKey(d));
+    const apiOptions = [...defenseOptions.map((d) => getStageKey(d)), "all"];
     if (!apiOptions.includes(selectedDefense)) {
       setSelectedDefense(
         isProvost
-          ? getStageKey(defenseOptions[Math.min(3, defenseOptions.length - 1)])
+          ? "all"
           : getStageKey(defenseOptions[0])
       );
     }
@@ -399,20 +391,8 @@ const StudentSessionManagement = () => {
         return;
       }
 
-      // If provost, we try to detect the stage from the search query
-      let stageSeg = getStageKey(selectedDefense);
-      if (isProvost) {
-        stageSeg = ""; // Default to all stages for provost
-        if (debouncedSearch) {
-          const matchingStage = defenseOptions.find(opt => 
-            opt.toLowerCase() === debouncedSearch.toLowerCase() ||
-            (debouncedSearch.length >= 3 && opt.toLowerCase().includes(debouncedSearch.toLowerCase()))
-          );
-          if (matchingStage) {
-            stageSeg = getStageKey(matchingStage);
-          }
-        }
-      }
+      // Calculate stage segment for the API call
+      const stageSeg = selectedDefense === "all" ? "" : selectedDefense;
 
       const levelSeg = degreeTab === "MSc" ? "msc" : "phd";
 
@@ -636,27 +616,49 @@ const StudentSessionManagement = () => {
 
 
   const filteredStudents = useMemo(() => {
-    if (!search.trim()) return students;
-    const term = search.toLowerCase().trim();
-    return students.filter((s) => {
-      const fullName = `${s.user?.firstName ?? ""} ${s.user?.lastName ?? ""}`.toLowerCase();
-      const matric = (s.matricNo ?? "").toLowerCase();
-      const topic = (s.projectTopic ?? "").toLowerCase();
-      const dept = (s.department ?? "").toLowerCase();
-      const faculty = (s.faculty ?? "").toLowerCase();
+    let result = students;
 
-      return (
-        fullName.includes(term) ||
-        matric.includes(term) ||
-        topic.includes(term) ||
-        dept.includes(term) ||
-        faculty.includes(term)
-      );
-    });
-  }, [students, search]);
+    // First filter by stage if not "all"
+    if (selectedDefense !== "all") {
+      result = result.filter((s) => s.currentStage === selectedDefense);
+    }
 
-  const totalPages = Math.max(1, Math.ceil((search.trim() ? filteredStudents.length : totalStudents) / itemsPerPage));
-  const paginated = search.trim() ? filteredStudents.slice((page - 1) * itemsPerPage, page * itemsPerPage) : students;
+    // Then filter by search term if provided
+    if (search.trim()) {
+      const term = search.toLowerCase().trim();
+      result = result.filter((s) => {
+        const fullName = `${s.user?.firstName ?? ""} ${s.user?.lastName ?? ""}`.toLowerCase();
+        const matric = (s.matricNo ?? "").toLowerCase();
+        const topic = (s.projectTopic ?? "").toLowerCase();
+        const dept = (s.department ?? "").toLowerCase();
+        const faculty = (s.faculty ?? "").toLowerCase();
+
+        return (
+          fullName.includes(term) ||
+          matric.includes(term) ||
+          topic.includes(term) ||
+          dept.includes(term) ||
+          faculty.includes(term)
+        );
+      });
+    }
+
+    return result;
+  }, [students, search, selectedDefense]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      (search.trim() || selectedDefense !== "all"
+        ? filteredStudents.length
+        : totalStudents) / itemsPerPage
+    )
+  );
+
+  const paginated =
+    search.trim() || selectedDefense !== "all"
+      ? filteredStudents.slice((page - 1) * itemsPerPage, page * itemsPerPage)
+      : students;
 
   const closeDefenseModal = () => {
     setDefenseModalOpen(false);
@@ -775,7 +777,7 @@ const StudentSessionManagement = () => {
 };
 
   const defenseStudentIds = useMemo(() => {
-    if (!Array.isArray(students) || !selectedDefense) return [];
+    if (!Array.isArray(students) || !selectedDefense || selectedDefense === "all") return [];
     return students
       .filter((s) => String(s.currentStage) === String(selectedDefense))
       .map((s) => s._id ?? (s as any).id)
@@ -823,34 +825,33 @@ const StudentSessionManagement = () => {
         {/* Filters grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           {/* Stage select */}
-          {!isProvost && (
-            <div>
-              <Label htmlFor="defense-select" className="text-sm text-gray-600">
-                Stage
-              </Label>
-              <Select
-                value={selectedDefense}
-                onValueChange={(v) => {
-                  setSelectedDefense(v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger id="defense-select" className="w-full">
-                  <SelectValue placeholder={selectedDefenseLabel} />
-                </SelectTrigger>
-                <SelectContent>
-                  {defenseOptions.map((opt) => (
-                    <SelectItem key={opt} value={getStageKey(opt)}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div>
+            <Label htmlFor="defense-select" className="text-sm text-gray-600">
+              Stage
+            </Label>
+            <Select
+              value={selectedDefense}
+              onValueChange={(v) => {
+                setSelectedDefense(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger id="defense-select" className="w-full">
+                <SelectValue placeholder={selectedDefenseLabel} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {defenseOptions.map((opt) => (
+                  <SelectItem key={opt} value={getStageKey(opt)}>
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Search */}
-          <div className={isProvost ? "md:col-span-2" : "md:col-span-1"}>
+          <div className={isProvost ? "md:col-span-1" : "md:col-span-1"}>
             <Label className="text-sm text-gray-600">Search</Label>
             <div className="relative">
               <Input
@@ -1025,7 +1026,7 @@ const StudentSessionManagement = () => {
         <div className="mt-4 flex items-center justify-between">
           <div />
           <div className="flex items-center gap-3">
-            {!isProvost && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && (
+            {!isProvost && selectedDefense !== "all" && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && (
               <Button
                 className="bg-amber-700 hover:bg-amber-800 text-white"
                 onClick={() => {

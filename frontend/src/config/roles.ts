@@ -1,6 +1,7 @@
 
 export enum Role {
   ADMIN = "admin",
+  SUPER_ADMIN = "super_admin",
   SUPERVISOR = "supervisor",
   STUDENT = "student",
   DEAN = "dean",
@@ -18,6 +19,7 @@ export enum Role {
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   [Role.ADMIN]: ["*"], // All permissions
+  [Role.SUPER_ADMIN]: ["*"],
   [Role.SUPERVISOR]: ["view_dashboard", "manage_students", "view_projects"],
   [Role.STUDENT]: ["view_dashboard", "upload_project", "view_comments"],
   [Role.DEAN]: ["view_dashboard", "manage_faculty", "view_reports"],
@@ -35,6 +37,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
 
 export const ROLE_HOME_PATHS: Record<Role, string> = {
   [Role.ADMIN]: "/admin",
+  [Role.SUPER_ADMIN]: "/superadmin",
   [Role.SUPERVISOR]: "/supervisor",
   [Role.STUDENT]: "/student",
   [Role.DEAN]: "/dean",

@@ -91,10 +91,21 @@ function formatSessionField(session: any): { id: string; sessionName: string } |
 
 */
 
-export async function paginateFormatted<T extends object>(model: Model<T>, page = 1, limit = 10, filter: Record<string, any> = {}, populate: string | object | any[] = []): Promise<PaginatedResult<T>> {
-  
+export async function paginateFormatted<T extends object>(
+  model: Model<T>,
+  page = 1,
+  limit = 10,
+  filter: Record<string, any> = {},
+  populate: string | object | any[] = [],
+  sort: Record<string, any> = { createdAt: -1 }
+): Promise<PaginatedResult<T>> {
   const skip = (page - 1) * limit;
-  const query = model.find(filter).populate(studentPopulationPaths).skip(skip).limit(limit);
+  const query = model
+    .find(filter)
+    .populate(studentPopulationPaths)
+    .sort(sort)
+    .skip(skip)
+    .limit(limit);
   
   if (populate && (Array.isArray(populate) ? populate.length > 0 : !!populate)) {
     query.populate(populate as any);
