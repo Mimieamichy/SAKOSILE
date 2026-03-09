@@ -24,6 +24,15 @@ export default class SchoolController {
     }
   }
 
+  static async getAllSchols(req: Request, res: Response) {
+    try {
+      const data = await SchoolService.getAllSchools();
+      res.json({ success: true, data });
+    } catch (err: any) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
 
   
 }

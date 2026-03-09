@@ -119,13 +119,16 @@ export default class LecturerService {
             title: data.title,
         });
 
-        return Lecturer.create({
+        const newLecturer = await Lecturer.create({
             user: user._id,
             department,
             faculty,
             school,
             staffId: data.staffId,
         });
+        
+        await SchoolService.incrementCount(school, 'lecturer');
+        return newLecturer;
     }
 
     static async addHOD(data: {
@@ -138,6 +141,7 @@ export default class LecturerService {
         role: string;
         department: string;
         faculty: string;
+        school: string;
     }) {
 
         //check if HOD has been added
@@ -153,11 +157,6 @@ export default class LecturerService {
         }
 
         const roles = [Role.HOD, Role.GENERAL, Role.LECTURER];
-        const admin = await UserService.getUserById(data.userId);
-
-        let schoolId = admin?.schoolId?.toString() ?? "none";
-        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
-
 
 
         // Create User with dynamic roles
@@ -170,13 +169,16 @@ export default class LecturerService {
             title: data.title,
         });
 
-        return await Lecturer.create({
+        const newLecturer = await Lecturer.create({
             user: user._id,
             department: data.department,
             faculty: data.faculty,
             staffId: data.staffId,
-            school: school,
+            school: data.school,
         });
+
+        await SchoolService.incrementCount(data.school, 'lecturer');
+        return newLecturer;
     }
 
     static async addDean(data: {
@@ -189,6 +191,7 @@ export default class LecturerService {
         role: string;
         department: string;
         faculty: string;
+        school: string;
     }) {
 
         //check if DEAN has been added
@@ -204,12 +207,6 @@ export default class LecturerService {
         }
 
         const roles = [Role.DEAN, Role.GENERAL, Role.LECTURER];
-        const admin = await UserService.getUserById(data.userId);
-
-        let schoolId = admin?.schoolId?.toString() ?? "none";
-        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
-
-
 
         // Create User with dynamic roles
         const user = await User.create({
@@ -221,13 +218,16 @@ export default class LecturerService {
             title: data.title,
         });
 
-        return await Lecturer.create({
+        const newLecturer = await Lecturer.create({
             user: user._id,
             department: data.department,
-            school: school,
+            school: data.school,
             faculty: data.faculty,
             staffId: data.staffId,
         });
+
+        await SchoolService.incrementCount(data.school, 'lecturer');
+        return newLecturer;
     }
 
     static async addProvost(data: {
@@ -239,7 +239,8 @@ export default class LecturerService {
         department: string;
         faculty: string;
         role: string;
-        userId: string
+        userId: string;
+        school: string;
     }) {
 
         //check if PROVOST has been added
@@ -254,12 +255,8 @@ export default class LecturerService {
             throw new Error(`A PROVOST has already been added for the school`);
         }
 
-
         const roles = [Role.PROVOST, Role.GENERAL, Role.LECTURER];
-        const admin = await UserService.getUserById(data.userId);
-
-        let schoolId = admin?.schoolId?.toString() ?? "none";
-        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
+    
 
 
         // Create User with dynamic roles
@@ -272,13 +269,15 @@ export default class LecturerService {
             title: data.title,
         });
 
-        return await Lecturer.create({
+        const newLecturer = await Lecturer.create({
             user: user._id,
             department: data.department,
-            school: school,
+            school: data.school,
             faculty: data.faculty,
             staffId: data.staffId,
         });
+        await SchoolService.incrementCount(data.school, 'lecturer');
+        return newLecturer;
     }
 
     static async addExternalExaminer(data: {
@@ -288,13 +287,10 @@ export default class LecturerService {
         lastName: string;
         department: string;
         role: string;
-        userId: string
+        userId: string;
+        school: string;
     }) {
         const roles = [Role.EXTERNAL_EXAMINER, Role.GENERAL, Role.PANEL_MEMBER];
-        const admin = await UserService.getUserById(data.userId);
-
-        let schoolId = admin?.schoolId?.toString() ?? "none";
-        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
 
 
         // Create User with dynamic roles
@@ -307,13 +303,16 @@ export default class LecturerService {
             title: data.title,
         });
 
-        return await Lecturer.create({
+        const exernal_examiner = await Lecturer.create({
             user: user._id,
             department: data.department,
-            school: school,
+            school: data.school,
             faculty: 'none',
             staffId: 'none',
         });
+
+        await SchoolService.incrementCount(data.school, 'external_examiner');
+        return exernal_examiner;
     }
 
     static async getHODs() {

@@ -1,5 +1,4 @@
 import { User, Lecturer, Student } from "../models/index";
-import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 export default class UserService {

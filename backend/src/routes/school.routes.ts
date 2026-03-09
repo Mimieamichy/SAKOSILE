@@ -11,6 +11,7 @@ router.use(authenticate, checkPermission(Permission.ADD_SCHOOL));
 // School Management
 router.post('/', SchoolController.addSchool);
 router.patch('/:id/status',  SchoolController.toggleSchoolStatus);
+router.get('/', SchoolController.getAllSchols);
 
 
 

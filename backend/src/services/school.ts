@@ -1,10 +1,28 @@
+import { Role } from '../utils/permissions';
 import { School, User } from '../models/index';
 import { Types } from 'mongoose';
 
 export default class SchoolService {
   // Add a new school/tenant
-  static async addSchool(schoolData: { name: string; centralAdminEmail: string }) {
-    return await School.create(schoolData);
+  static async addSchool(schoolData: { name: string; centralAdminEmail: string; firstName: string; lastName: string }) {
+    // 1. Create the School record first to get its ID
+    const newSchool = await School.create({
+      name: schoolData.name,
+      centralAdminEmail: schoolData.centralAdminEmail,
+      status: 'Active'
+    });
+
+    // 2. Create the Admin User and link the schoolId
+    await User.create({
+      email: schoolData.centralAdminEmail,
+      password: schoolData.centralAdminEmail, // Hashed automatically by your User model's pre-save hook
+      firstName: schoolData.firstName,
+      lastName: schoolData.lastName,
+      roles: [Role.ADMIN, Role.GENERAL],
+      schoolId: newSchool._id, 
+    });
+
+    return newSchool;
   }
 
   // Toggle status for School or User
@@ -52,5 +70,13 @@ export default class SchoolService {
   static async getSchoolById(schoolId: string) {
     if (!Types.ObjectId.isValid(schoolId)) throw new Error('Invalid ID format.');
     return await School.findById(new Types.ObjectId(schoolId));
+  }
+
+  static async incrementCount(schoolName: string, type: 'lecturer' | 'student' | 'external_examiner') {
+    return await School.findOneAndUpdate(
+      { name: schoolName },
+      { $inc: { [type]: 1 } },
+      { new: true } 
+    );
   }
 }

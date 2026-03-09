@@ -3,6 +3,7 @@ import { Role } from '../utils/permissions';
 import LecturerService from "../services/lecturer"
 import { paginateFormatted, findOneFormatted } from "../utils/paginatedAndTransform"
 import NotificationService from "./notification";
+import SchoolService from "./school";
 import mongoose, { Types } from "mongoose";
 
 
@@ -79,6 +80,8 @@ export default class StudentService {
             projectTopic: data.projectTopic,
             stageScores: getDefaultStageScores(data.level)
         });
+
+        await SchoolService.incrementCount(school, 'student');
 
         return await student.save();
     }

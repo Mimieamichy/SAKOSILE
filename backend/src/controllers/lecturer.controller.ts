@@ -70,7 +70,8 @@ export default class LecturerController {
     try {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
       const userId = req.user?.id || ''
-      const hod = await LecturerService.addHOD({ email, title, firstName, lastName, userId, staffId, role, department, faculty });
+      const school = req.user?.school || ''
+      const hod = await LecturerService.addHOD({ email, title, firstName, lastName, userId, staffId, role, department, faculty , school});
       res.json({ success: true, data: hod });
     } catch (err: any) {
       console.log('Error adding HOD:', err);
@@ -82,7 +83,8 @@ export default class LecturerController {
     try {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
       const userId = req.user?.id || ''
-      const dean = await LecturerService.addDean({ email, title, firstName, lastName, userId, staffId, role, department, faculty });
+      const school = req.user?.school || ''
+      const dean = await LecturerService.addDean({ email, title, firstName, lastName, userId, staffId, role, department, faculty , school});
       res.json({ success: true, data: dean });
     } catch (err: any) {
       console.log('Error adding Dean:', err);
@@ -95,7 +97,8 @@ export default class LecturerController {
     try {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
       const userId = req.user?.id || ''
-      const provost = await LecturerService.addProvost({ email, title, firstName, lastName, staffId, department, faculty , role, userId});
+      const school = req.user?.school || ''
+      const provost = await LecturerService.addProvost({ email, title, firstName, lastName, staffId, department, faculty , role, userId, school});
       res.json({ success: true, data: provost });
     } catch (err: any) {
       console.log('Error adding Provost:', err);
@@ -108,7 +111,8 @@ export default class LecturerController {
     try {
       const { email, title, firstName, lastName, department, role } = req.body;
       const userId = req.user?.id || ''
-      const external_examiner = await LecturerService.addExternalExaminer({ email, title, firstName, lastName, department, role, userId });
+      const school = req.user?.school || ''
+      const external_examiner = await LecturerService.addExternalExaminer({ email, title, firstName, lastName, department, role, userId , school});
       res.json({ success: true, data: external_examiner });
     } catch (err: any) {
       console.log('Error adding external_examiner:', err);
