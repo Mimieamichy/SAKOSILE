@@ -54,3 +54,12 @@ export type { IDepartment } from './department';
 export { default as DefenceComment } from './defenceComments';
 export type { IDefenceComment } from './defenceComments';
 
+
+//School 
+export { default as School } from './school';
+export type { ISchool } from './school';
+
+//Institution
+export { default as Institution } from './institution';
+export type { IInstitution } from './institution';
+

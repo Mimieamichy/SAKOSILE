@@ -21,6 +21,9 @@ import facultyRoutes from './routes/faculty.routes';
 import defenceRoutes from './routes/defence.routes';
 import scoreSheetRoute from './routes/scoresheet.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import institutionRoutes from './routes/institutions.routes';
+import schoolRoutes from './routes/school.routes';
+import analyticsRoutes from './routes/analytics.routes';
 
 
 import ProjectService from './services/project';
@@ -97,6 +100,9 @@ app.use("/api/faculty", facultyRoutes);
 app.use('/api/defence', defenceRoutes);
 app.use('/api/defence', scoreSheetRoute);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/institution', institutionRoutes)
+app.use('/api/school', schoolRoutes)
+app.use('/api/analytics', analyticsRoutes)
 
 //Global error handler (avoid exposing stack traces in prod)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

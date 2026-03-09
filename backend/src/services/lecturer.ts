@@ -1,6 +1,8 @@
 import { Lecturer, User, Student } from '../models/index';
 import { Role } from '../utils/permissions';
 import NotificationService from '../services/notification'
+import UserService from './user';
+import SchoolService from './school';
 
 
 export default class LecturerService {
@@ -104,8 +106,8 @@ export default class LecturerService {
         // Get lecturer's department and faculty if no lecturer exists return null
         let faculty = lecturer?.faculty ?? "none";
         let department = lecturer?.department ?? "none";
+        let school = lecturer?.school ?? "none";
 
-        console.log(department)
 
         // Create User with dynamic roles
         const user = await User.create({
@@ -121,6 +123,7 @@ export default class LecturerService {
             user: user._id,
             department,
             faculty,
+            school,
             staffId: data.staffId,
         });
     }
@@ -150,6 +153,11 @@ export default class LecturerService {
         }
 
         const roles = [Role.HOD, Role.GENERAL, Role.LECTURER];
+        const admin = await UserService.getUserById(data.userId);
+
+        let schoolId = admin?.schoolId?.toString() ?? "none";
+        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
+
 
 
         // Create User with dynamic roles
@@ -167,6 +175,7 @@ export default class LecturerService {
             department: data.department,
             faculty: data.faculty,
             staffId: data.staffId,
+            school: school,
         });
     }
 
@@ -195,6 +204,11 @@ export default class LecturerService {
         }
 
         const roles = [Role.DEAN, Role.GENERAL, Role.LECTURER];
+        const admin = await UserService.getUserById(data.userId);
+
+        let schoolId = admin?.schoolId?.toString() ?? "none";
+        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
+
 
 
         // Create User with dynamic roles
@@ -210,6 +224,7 @@ export default class LecturerService {
         return await Lecturer.create({
             user: user._id,
             department: data.department,
+            school: school,
             faculty: data.faculty,
             staffId: data.staffId,
         });
@@ -224,6 +239,7 @@ export default class LecturerService {
         department: string;
         faculty: string;
         role: string;
+        userId: string
     }) {
 
         //check if PROVOST has been added
@@ -240,6 +256,11 @@ export default class LecturerService {
 
 
         const roles = [Role.PROVOST, Role.GENERAL, Role.LECTURER];
+        const admin = await UserService.getUserById(data.userId);
+
+        let schoolId = admin?.schoolId?.toString() ?? "none";
+        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
+
 
         // Create User with dynamic roles
         const user = await User.create({
@@ -254,6 +275,7 @@ export default class LecturerService {
         return await Lecturer.create({
             user: user._id,
             department: data.department,
+            school: school,
             faculty: data.faculty,
             staffId: data.staffId,
         });
@@ -266,8 +288,14 @@ export default class LecturerService {
         lastName: string;
         department: string;
         role: string;
+        userId: string
     }) {
         const roles = [Role.EXTERNAL_EXAMINER, Role.GENERAL, Role.PANEL_MEMBER];
+        const admin = await UserService.getUserById(data.userId);
+
+        let schoolId = admin?.schoolId?.toString() ?? "none";
+        const school = SchoolService.getSchoolById(schoolId)?.name ?? "none";
+
 
         // Create User with dynamic roles
         const user = await User.create({
@@ -282,6 +310,7 @@ export default class LecturerService {
         return await Lecturer.create({
             user: user._id,
             department: data.department,
+            school: school,
             faculty: 'none',
             staffId: 'none',
         });

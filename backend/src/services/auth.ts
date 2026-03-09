@@ -6,6 +6,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 const RESET_TOKEN_EXPIRY = '1h';
 import { getPermissionsFromRoles } from '../utils/helpers';
 import { Role } from '../utils/permissions';
+import UserService from './user';
+
 
 
 export const blacklistTokens: string[] = [];
@@ -34,6 +36,7 @@ export default class AuthService {
     let department = "none";
     let faculty = "none";
     let lecturerId = "none";
+    let schoolName = "none";
 
     // STUDENT LOGIC
     if (roles.includes(Role.STUDENT)) {
@@ -46,6 +49,7 @@ export default class AuthService {
 
       department = student.department;
       faculty = student.faculty;
+      schoolName = student.school;
     }
 
     // LECTURER / STAFF LOGIC
@@ -65,13 +69,15 @@ export default class AuthService {
 
       department = lecturer.department || "none";
       faculty = lecturer.faculty || "none";
+      const userInfo = await UserService.getUserById(user._id as string);
+      schoolName = (userInfo.schoolId as any)?.name || 'N/A';
       lecturerId = String(lecturer._id);
     }
 
     const token = jwt.sign(
       {
         id: user._id,
-        schoolId: user.schoolId || null, // null for super admin
+        school: schoolName,
         roles,
         permissions,
         department,
@@ -89,7 +95,7 @@ export default class AuthService {
         lastName: user.lastName,
         roles,
         isPanelMember: user.isPanelMember,
-        schoolId: user.schoolId || null,
+        school: schoolName || null,
         department,
         faculty,
         lecturer: lecturerId

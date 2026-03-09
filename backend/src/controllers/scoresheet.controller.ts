@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import ScoreSheetService from '../services/scoresheet';
+import ActivityLogService from '../services/activity_log'
+import UserService from '../services/user';
+import LecturerService from '../services/lecturer';
 
 
 
@@ -19,7 +22,16 @@ export default class ScoreSheetController {
     try {
       const { criteria } = req.body;
       const userId = req.user?.id || ''
+      const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
+      const user = await UserService.getUserProfile(userId)
+      const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
+
+      const lecturer = await LecturerService.getLecturerById(userId)
+      const department = lecturer?.department || 'N/A'
+      
       const scoreSheet = await ScoreSheetService.createDeptScoreSheet(criteria, userId);
+      await ActivityLogService.logActivity(userId, userName, role, 'created a Department ', 'Score sheet for', department , school);
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
@@ -45,7 +57,16 @@ export default class ScoreSheetController {
       const { criteria } = req.body;
       const { criterionId } = req.params;
       const userId = req.user?.id || ''
+      const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
+      const user = await UserService.getUserProfile(userId)
+      const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
+
+      const lecturer = await LecturerService.getLecturerById(userId)
+      const department = lecturer?.department || 'N/A'
+      
       const scoreSheet = await ScoreSheetService.UpdateCriterionDeptScoreSheet(userId, criterionId, criteria);
+      await ActivityLogService.logActivity(userId, userName, role, 'Updated a Department ', 'ScoreSheet Criterion', department, school);
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
@@ -58,7 +79,15 @@ export default class ScoreSheetController {
   static async createGeneralScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
       const { criteria } = req.body;
+     
+      const userId = req.user?.id || ''
+      const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
+      const user = await UserService.getUserProfile(userId)
+      const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
+      
       const scoreSheet = await ScoreSheetService.createGeneralScoreSheet(criteria);
+      await ActivityLogService.logActivity(userId, userName, role, 'Created a General ', 'ScoreSheet', 'For', school);
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
@@ -70,7 +99,16 @@ export default class ScoreSheetController {
     try {
       const { criteria } = req.body
       const { criterionId } = req.params;
+      const userId = req.user?.id || ''
+      const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
+      const user = await UserService.getUserProfile(userId)
+      const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
+
+      
       const scoreSheet = await ScoreSheetService.updateGenCriterion(criterionId, criteria);
+      await ActivityLogService.logActivity(userId, userName, role, 'Updated a General ', 'Criterion', 'For', school);
+    
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
@@ -80,6 +118,7 @@ export default class ScoreSheetController {
 
 static async getGenScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
+
       const scoreSheet = await ScoreSheetService.getGenScoreSheet();
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
@@ -92,7 +131,17 @@ static async getGenScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
       const { criterionId } = req.params;
       const userId = req.user?.id || ''
+      const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
+      const user = await UserService.getUserProfile(userId)
+      const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
+
+      const lecturer = await LecturerService.getLecturerById(userId)
+      const department = lecturer?.department || 'N/A'
+      
       const deletedId = await ScoreSheetService.deleteCriterionDeptScoreSheet(userId, criterionId);
+      await ActivityLogService.logActivity(userId, userName, role, 'Deleted a Department ', 'ScoreSheet Criterion', department, school);
+      
       res.json({ success: true, data: deletedId });
     } catch (err: any) {
       console.log(err)
@@ -103,6 +152,15 @@ static async getGenScoreSheet(req: AuthenticatedRequest, res: Response) {
   static async deleteGenCriterion(req: AuthenticatedRequest, res: Response) {
     try {
       const { criterionId } = req.params;
+      const userId = req.user?.id || ''
+      const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
+      const user = await UserService.getUserProfile(userId)
+      const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
+          
+    
+
+      await ActivityLogService.logActivity(userId, userName, role, 'Deleted a General ', 'Criterion', 'For', school);
       const deletedId = await ScoreSheetService.deleteGenCriterion(criterionId);
       res.json({ success: true, data: deletedId });
     } catch (err: any) {

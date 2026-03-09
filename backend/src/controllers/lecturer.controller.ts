@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import LecturerService from '../services/lecturer'
-import ActivityLogService from '../services/activity_log';
+
 
 
 export interface AuthenticatedRequest extends Request {
@@ -94,7 +94,8 @@ export default class LecturerController {
   static async addProvost(req: AuthenticatedRequest, res: Response) {
     try {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
-      const provost = await LecturerService.addProvost({ email, title, firstName, lastName, staffId, department, faculty , role});
+      const userId = req.user?.id || ''
+      const provost = await LecturerService.addProvost({ email, title, firstName, lastName, staffId, department, faculty , role, userId});
       res.json({ success: true, data: provost });
     } catch (err: any) {
       console.log('Error adding Provost:', err);
@@ -106,7 +107,8 @@ export default class LecturerController {
   static async addExternalExaminer(req: AuthenticatedRequest, res: Response) {
     try {
       const { email, title, firstName, lastName, department, role } = req.body;
-      const external_examiner = await LecturerService.addExternalExaminer({ email, title, firstName, lastName, department, role });
+      const userId = req.user?.id || ''
+      const external_examiner = await LecturerService.addExternalExaminer({ email, title, firstName, lastName, department, role, userId });
       res.json({ success: true, data: external_examiner });
     } catch (err: any) {
       console.log('Error adding external_examiner:', err);

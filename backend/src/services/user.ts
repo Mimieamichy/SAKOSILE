@@ -1,4 +1,5 @@
 import { User, Lecturer, Student } from "../models/index";
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 export default class UserService {
@@ -32,5 +33,17 @@ export default class UserService {
         return;
     }
 
+    
+    static async getUserById(userId: string) {
+        const user = await User.findById(userId)
+            .populate('schoolId', 'name') 
+            .lean();
+
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        return user;
+    }
    
 }

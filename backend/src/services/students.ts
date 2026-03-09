@@ -65,6 +65,7 @@ export default class StudentService {
         // Get lecturer's department and faculty if no lecturer exists return null
         let faculty = lecturer?.faculty ?? "none";
         let department = lecturer?.department ?? "none";
+        let school = lecturer?.school ?? "none";
 
         // Step 4: Create the student
         const student = new Student({
@@ -73,6 +74,7 @@ export default class StudentService {
             level: data.level,
             department,
             faculty,
+            school,
             session: data.session,
             projectTopic: data.projectTopic,
             stageScores: getDefaultStageScores(data.level)

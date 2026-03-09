@@ -1,32 +1,21 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Document, Schema } from 'mongoose';
+
 
 export interface ISchool extends Document {
   name: string;
-  domain?: string;
-  logo?: string;
-  createdBy?: mongoose.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
+  centralAdminEmail: string;
+  students: number;
+  staff: number;
+  status: 'Active' | 'Suspended';
 }
 
-const schoolSchema = new Schema<ISchool>(
-  {
-    name: {
-      type: String,
-      required: true
-    },
-    domain: {
-      type: String
-    },
-    logo: {
-      type: String
-    },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User"
-    }
-  },
-  { timestamps: true }
-);
+const schoolSchema = new Schema<ISchool>({
+  name: { type: String, required: true },
+  centralAdminEmail: { type: String, required: true, unique: true },
+  students: { type: Number, default: 0 },
+  staff: { type: Number, default: 0 },
+  status: { type: String, enum: ['Active', 'Suspended'], default: 'Active' },
+}, { timestamps: true });
 
-export const School = mongoose.model<ISchool>("School", schoolSchema);
+
+export default mongoose.model<ISchool>('School', schoolSchema);
