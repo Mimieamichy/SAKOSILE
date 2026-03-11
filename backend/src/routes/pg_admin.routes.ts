@@ -11,6 +11,7 @@ const router = Router();
 
 router.post('/admin',  authenticate, checkPermission(Permission.ADD_PG_ADMIN), PGAdminController.createAdmin
 );
+router.get('/admin', authenticate, checkPermission(Permission.VIEW_PG_ADMINS), PGAdminController.getAllAdmins);
 
 
 export default router;
