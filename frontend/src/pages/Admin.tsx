@@ -91,17 +91,20 @@ export default function Admin() {
             return;
           }
 
-          // Build payload: include faculty & department for all roles (modal now provides names)
-          const body: Partial<NewHodData> = {
+          // Build payload: include faculty & department only if not pg_admin
+          const body: any = {
             title: payload.title,
             firstName: payload.firstName,
             lastName: payload.lastName,
             staffId: payload.staffId,
             email: payload.email,
             role: payload.role,
-            faculty: payload.faculty ?? "",
-            department: payload.department ?? "",
           };
+
+          if (payload.role !== "pg_admin") {
+            body.faculty = payload.faculty ?? "";
+            body.department = payload.department ?? "";
+          }
 
           // Choose endpoint based on role
           const endpoint =
@@ -109,6 +112,8 @@ export default function Admin() {
               ? "/lecturer/add-provost"
               : payload.role === "dean"
               ? "/lecturer/add-dean"
+              : payload.role === "pg_admin"
+              ? "/pg_admin/admin"
               : "/lecturer/add-hod";
 
           try {

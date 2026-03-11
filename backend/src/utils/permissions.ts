@@ -14,6 +14,7 @@ export enum Role {
   EXTERNAL_EXAMINER = 'external_examiner',
   ADMIN = 'admin',
   SUPER_ADMIN = 'super_admin',
+  PG_ADMIN = 'pg_admin',
   GENERAL = 'general',
 }
 
@@ -95,6 +96,8 @@ export enum Permission {
   ADD_PROVOST = 'add_provost',
   ADD_DEAN = 'add_dean',
   GET_DEAN = 'get_dean',
+  GET_PG_ADMINS = 'get_pgadmins',
+  ADD_PG_ADMIN = 'add_pgadmin',
 
 
   //Superadmin
@@ -260,6 +263,15 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.ADD_DEAN,
     Permission.GET_ALL_DEPARTMENTS,
     Permission.VIEW_FACULTY_REP,
+    Permission.ADD_PG_ADMIN,
+    Permission.GET_PG_ADMINS,
+  ],
+  [Role.PG_ADMIN]: [
+    Permission.LOGIN,
+    Permission.LOGOUT,
+    Permission.VIEW_NOTIFICATIONS,
+    Permission.VIEW_ONE_STUDENT,
+    Permission.VIEW_ALL_SESSIONS,
   ],
   [Role.GENERAL]: [
     Permission.LOGIN,

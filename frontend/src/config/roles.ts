@@ -2,6 +2,7 @@
 export enum Role {
   ADMIN = "admin",
   SUPER_ADMIN = "super_admin",
+  PG_ADMIN = "pg_admin",
   SUPERVISOR = "supervisor",
   STUDENT = "student",
   DEAN = "dean",
@@ -51,4 +52,5 @@ export const ROLE_HOME_PATHS: Record<Role, string> = {
   [Role.COLLEGE_REP]: "/supervisor",
   [Role.INTERNAL_EXAMINER]: "/defense-day",
   [Role.MAJOR_SUPERVISOR]: "/supervisor",
+  [Role.PG_ADMIN]: "/pg_admin",
 };

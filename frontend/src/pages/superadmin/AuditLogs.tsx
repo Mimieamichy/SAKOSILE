@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 type Category = "schools" | "payments" | "admin" | "security";
 type Severity = "info" | "warning" | "error";
@@ -40,6 +41,7 @@ export default function AuditLogs() {
   const [tab, setTab] = useState<"all" | Category>("all");
   const [severity, setSeverity] = useState<"all" | Severity>("all");
   const [logs, setLogs] = useState<LogEntry[]>(seed);
+  const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
   const filtered = useMemo(() => {
     let list = logs;
@@ -77,6 +79,47 @@ export default function AuditLogs() {
     setLogs([]);
     toast({ title: "Logs cleared" });
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await axios.get(`${baseUrl}/user/activity-logs`);
+        const data = res.data as unknown;
+        const arr =
+          typeof data === "object" && data !== null && "data" in (data as any)
+            ? (data as any).data
+            : data;
+        const parsed: LogEntry[] = Array.isArray(arr)
+          ? arr
+              .map((x: unknown) => {
+                if (!x || typeof x !== "object") return null;
+                const o = x as any;
+                const cat = String(o.category || o.type || "admin").toLowerCase() as Category;
+                const sev = String(o.severity || "info").toLowerCase() as Severity;
+                return {
+                  id: String(o.id || o._id || crypto.randomUUID()),
+                  ts: String(o.ts || o.time || o.createdAt || ""),
+                  category: cat,
+                  school: o.school || o.institution || undefined,
+                  actor: String(o.actor || o.user || "system"),
+                  action: String(o.action || o.event || ""),
+                  details: String(o.details || o.message || ""),
+                  severity: sev,
+                } as LogEntry;
+              })
+              .filter(Boolean) as LogEntry[]
+          : [];
+        if (!cancelled && parsed.length > 0) setLogs(parsed);
+      } catch {
+        // keep seed
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl]);
 
   return (
     <div className="space-y-6">
