@@ -24,6 +24,7 @@ import dashboardRoutes from './routes/dashboard.routes';
 import institutionRoutes from './routes/institutions.routes';
 import schoolRoutes from './routes/school.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import pgadminRoutes from './routes/pg_admin.routes';
 
 
 import ProjectService from './services/project';
@@ -103,6 +104,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/institution', institutionRoutes)
 app.use('/api/school', schoolRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/pg_admin', pgadminRoutes)
 
 //Global error handler (avoid exposing stack traces in prod)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
