@@ -15,7 +15,7 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { login, demoLogin, getHomePath } = useAuthStore();
+  const { login, getHomePath } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -30,21 +30,15 @@ const SignIn = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const email = formData.email.trim().toLowerCase();
-      const pass = formData.password;
-      if (email === "superadmin@example.com" && pass === "demo") {
-        demoLogin("super_admin");
-        navigate("/superadmin");
-        return;
-      }
       await login(formData.email, formData.password);
       const chosenRoute = getHomePath();
       navigate(chosenRoute);
-    } catch (err: any) {
-      console.error("Login error:", err);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Login error:", message);
       toast({
         title: "Login Failed",
-        description: err?.message ?? "Please check your email and password.",
+        description: message || "Please check your email and password.",
         variant: "destructive",
       });
     } finally {
@@ -130,20 +124,6 @@ const SignIn = () => {
               <ArrowRight size={24} />
             </Button>
           </form>
-          {import.meta.env.DEV && (
-            <div className="mt-6">
-              <Button
-                type="button"
-                className="w-full bg-gray-800 hover:bg-gray-900 text-white py-3 rounded-full text-lg font-medium"
-                onClick={() => {
-                  demoLogin("super_admin");
-                  navigate("/superadmin");
-                }}
-              >
-                Demo: Login as Super Admin
-              </Button>
-            </div>
-          )}
         </div>
       </div>
     </div>

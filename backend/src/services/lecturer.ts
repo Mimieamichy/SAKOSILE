@@ -280,6 +280,39 @@ export default class LecturerService {
         return newLecturer;
     }
 
+    static async addPGAdmin(data: {
+        email: string;
+        title: string;
+        firstName: string;
+        lastName: string;
+        staffId: string;
+        role: string;
+        userId: string;
+        school: string;
+    }) {
+        const roles = [Role.PG_ADMIN, Role.GENERAL, Role.LECTURER];
+
+        // Create User with dynamic roles
+        const user = await User.create({
+            email: data.email,
+            password: data.email, // for development; hash in pre-save
+            roles,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            title: data.title,
+        });
+
+        const newLecturer = await Lecturer.create({
+            user: user._id,
+            department: 'none',
+            school: data.school,
+            faculty: 'none',
+            staffId: data.staffId,
+        });
+        await SchoolService.incrementCount(data.school, 'lecturer');
+        return newLecturer;
+    }
+
     static async addExternalExaminer(data: {
         email: string;
         title: string;
@@ -338,6 +371,15 @@ export default class LecturerService {
             .populate({
                 path: 'user',
                 match: { roles: 'provost' },
+            })
+            .then(lecturers => lecturers.filter(l => l.user)); // remove lecturers with no matched user
+    }
+
+    static async getPGAdmins() {
+        return Lecturer.find()
+            .populate({
+                path: 'user',
+                match: { roles: 'pg_admin' },
             })
             .then(lecturers => lecturers.filter(l => l.user)); // remove lecturers with no matched user
     }

@@ -22,7 +22,6 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<UserProfile>;
-  demoLogin: (role?: string) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: Role | Role[] | string | string[]) => boolean;
@@ -85,22 +84,6 @@ export const useAuthStore = create<AuthState>()(
           const message = err?.response?.data?.message || err?.message || "Login failed";
           throw new Error(message);
         }
-      },
-
-      demoLogin: (role = "super_admin") => {
-        const demoUser: UserProfile = {
-          userName: "Demo Super Admin",
-          role: role,
-          roles: [role],
-          email: "superadmin@example.com",
-          id: "demo-superadmin-1",
-          department: "none",
-          faculty: "none",
-          lecturerId: undefined,
-        };
-        const demoToken = "demo-token";
-        set({ user: demoUser, token: demoToken, isAuthenticated: true });
-        axios.defaults.headers.common["Authorization"] = `Bearer ${demoToken}`;
       },
 
       logout: () => {

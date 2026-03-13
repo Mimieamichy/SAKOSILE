@@ -1,24 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-} from "recharts";
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import axios from "axios";
+import { useAuthStore } from "@/store/authStore";
 
-type Role =
-  | "super_admin"
-  | "admin"
-  | "dean"
-  | "hod"
-  | "pgcord"
-  | "lecturer"
-  | "student";
+type Role = string; // More flexible for dynamic roles from API
 
 type UserRow = {
   id: string;
@@ -29,27 +18,20 @@ type UserRow = {
   active: boolean;
 };
 
-const seed: UserRow[] = [
-  { id: "U-0001", name: "Demo Super Admin", email: "superadmin@example.com", school: "Platform", role: "super_admin", active: true },
-  { id: "U-0002", name: "Platform Admin", email: "admin@example.com", school: "Platform", role: "admin", active: true },
-  { id: "U-0003", name: "Dean Science", email: "dean.science@example.com", school: "College of Science", role: "dean", active: true },
-  { id: "U-0004", name: "HOD CS", email: "hod.cs@example.com", school: "College of Science", role: "hod", active: true },
-  { id: "U-0005", name: "PG Coord Eng", email: "pg.eng@example.com", school: "College of Engineering", role: "pgcord", active: true },
-  { id: "U-0006", name: "Dr. Ada", email: "ada.lect@example.com", school: "College of Science", role: "lecturer", active: true },
-  { id: "U-0007", name: "Gloria Andrew", email: "gloria@gmail.com", school: "College of Computing", role: "student", active: true },
-  { id: "U-0008", name: "Amichy Ezeh", email: "amichy0@gmail.com", school: "College of Computing", role: "student", active: false },
-];
 
 const pieColors = ["#f59e0b", "#10b981", "#6366f1", "#ef4444", "#3b82f6", "#a855f7", "#06b6d4"];
 
 export default function Users() {
   const { toast } = useToast();
+  const { token } = useAuthStore();
   const [query, setQuery] = useState("");
-  const [rows, setRows] = useState<UserRow[]>(seed);
+  const [rows, setRows] = useState<UserRow[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
+  const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
-  const totalUsers = rows.length;
+  const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [roleStatsFromApi, setRoleStatsFromApi] = useState<any[]>([]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return rows;
@@ -70,15 +52,89 @@ export default function Users() {
   }, [filtered, page, pageSize]);
 
   const roleDist = useMemo(() => {
-    const map = new Map<Role, number>();
-    rows.forEach((u) => map.set(u.role, (map.get(u.role) || 0) + 1));
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
-  }, [rows]);
+    // If we have roleStats from API, use them
+    if (roleStatsFromApi.length > 0 && roleStatsFromApi.some(s => s._id !== null)) {
+      return roleStatsFromApi
+        .filter(s => s._id !== null)
+        .map(s => ({ 
+          name: String(s._id).replace("_", " "), 
+          value: s.total 
+        }));
+    }
 
-  const toggleActive = (id: string) => {
-    setRows((prev) => prev.map((u) => (u.id === id ? { ...u, active: !u.active } : u)));
-    toast({ title: "Account status updated" });
+    // Fallback to counting from rows
+    const map = new Map<string, number>();
+    rows.forEach((u) => map.set(u.role, (map.get(u.role) || 0) + 1));
+    return Array.from(map.entries()).map(([name, value]) => ({ 
+      name: name.replace("_", " "), 
+      value 
+    }));
+  }, [rows, roleStatsFromApi]);
+
+  const toggleActive = async (id: string) => {
+    const target = rows.find((u) => u.id === id);
+    if (!target) return;
+    const next = target.active ? "Suspended" : "Active";
+    try {
+      await axios.patch(`${baseUrl}/user/${encodeURIComponent(id)}/status`, {
+        status: next,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setRows((prev) => prev.map((u) => (u.id === id ? { ...u, active: !u.active } : u)));
+      toast({ title: "Account status updated" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Update failed";
+      toast({ title: "Update failed", description: message, variant: "destructive" });
+    }
   };
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const res = await axios.get(`${baseUrl}/user/users-report`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = res.data;
+        console.log("users:", res);
+        
+        
+        // The API returns { users: [...], roleStats: [...] }
+        const users = Array.isArray(data.data.users) ? data.data.users : [];
+        const roleStats = Array.isArray(data.data.roleStats) ? data.data.roleStats : [];  
+
+        if (!cancelled) {
+          const updatedRows: UserRow[] = users.map((u: any) => ({
+            id: u._id,
+            name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
+            email: u.email,
+            school: u.school?.name || "—",
+            role: (u.roles && u.roles.length > 0) ? u.roles[0] : "general",
+            active: u.status !== "suspended",
+          }));
+          
+          setRows(updatedRows);
+          setRoleStatsFromApi(roleStats);
+
+          // Calculate total from roleStats if available, otherwise from users length
+          const total = roleStats.length > 0 
+            ? roleStats.reduce((acc: number, curr: any) => acc + (curr.total || 0), 0)
+            : updatedRows.length;
+          
+          setTotalUsers(total);
+        }
+      } catch (err) {
+        console.error("Failed to fetch users report", err);
+        toast({ title: "Fetch failed", description: "Failed to load user directory", variant: "destructive" });
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl, token]);
 
   return (
     <div className="space-y-6">

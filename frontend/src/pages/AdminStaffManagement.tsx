@@ -27,11 +27,12 @@ const baseUrl = import.meta.env.VITE_BACKEND_URL;
 export default function AdminStaffManagement() {
   const { token } = useAuthStore();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"hod" | "provost" | "dean">("hod");
+  const [activeTab, setActiveTab] = useState<"hod" | "provost" | "dean" | "pg_admin">("hod");
 
   const [hods, setHods] = useState<LecturerRecord[]>([]);
   const [provosts, setProvosts] = useState<LecturerRecord[]>([]);
   const [deans, setDeans] = useState<LecturerRecord[]>([]);
+  const [pgAdmins, setPgAdmins] = useState<LecturerRecord[]>([]);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -52,10 +53,11 @@ export default function AdminStaffManagement() {
     if (!token) return;
     const load = async () => {
       try {
-        const [hodRes, provRes, deanRes] = await Promise.all([
+        const [hodRes, provRes, deanRes, pgRes] = await Promise.all([
           axios.get<{ data: any[] }>(`${baseUrl}/lecturer/get-hods`),
           axios.get<{ data: any[] }>(`${baseUrl}/lecturer/get-provost`),
           axios.get<{ data: any[] }>(`${baseUrl}/lecturer/get-dean`),
+          axios.get<{ data: any[] }>(`${baseUrl}/pg_admin/admin`),
         ]);
 
         // map HODs
@@ -100,6 +102,19 @@ export default function AdminStaffManagement() {
           }))
         );
         console.log("Deans:", deans);
+
+        // map PGAdmins
+        setPgAdmins(
+          (pgRes.data.data || []).map((raw: any) => ({
+            id: raw._id,
+            title: raw.user.title,
+            name: `${raw.user?.firstName ?? ""} ${
+              raw.user?.lastName ?? ""
+            }`.trim(),
+            email: raw.user?.email ?? "",
+          }))
+        );
+        console.log("PGAdmins:", pgAdmins);
       } catch (err) {
         console.error(err);
         toast({
@@ -134,6 +149,7 @@ export default function AdminStaffManagement() {
       setHods((h) => h.filter((x) => x.id !== id));
       setProvosts((p) => p.filter((x) => x.id !== id));
       setDeans((d) => d.filter((x) => x.id !== id));
+      setPgAdmins((pg) => pg.filter((x) => x.id !== id));
 
       toast({ title: "Deleted", description: "Record removed." });
     } catch (err) {
@@ -230,6 +246,7 @@ export default function AdminStaffManagement() {
           <TabsTrigger value="hod">HODs</TabsTrigger>
           <TabsTrigger value="dean">Deans</TabsTrigger>
           <TabsTrigger value="provost">Provost</TabsTrigger>
+          <TabsTrigger value="pg_admin">PG Admin</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hod" className="pt-4">
@@ -242,6 +259,10 @@ export default function AdminStaffManagement() {
 
         <TabsContent value="provost" className="pt-4">
           {renderTable(provosts)}
+        </TabsContent>
+
+        <TabsContent value="pg_admin" className="pt-4">
+          {renderTable(pgAdmins)}
         </TabsContent>
       </Tabs>
 

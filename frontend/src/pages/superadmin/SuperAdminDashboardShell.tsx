@@ -47,11 +47,8 @@ export default function SuperAdminDashboardShell() {
   const navItems = [
     { label: "Dashboard", path: "/superadmin/overview", show: true },
     { label: "Schools", path: "/superadmin/schools", show: true },
-    { label: "Payments", path: "/superadmin/payments", show: true },
     { label: "Users", path: "/superadmin/users", show: true },
     { label: "Analytics", path: "/superadmin/analytics", show: true },
-    { label: "Support", path: "/superadmin/support", show: true },
-    { label: "System Settings", path: "/superadmin/settings", show: true },
     { label: "Audit Logs", path: "/superadmin/audit-logs", show: true },
   ];
 

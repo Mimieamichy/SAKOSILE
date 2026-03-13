@@ -36,11 +36,8 @@ import FacultyScoreSheets from "./pages/faculty/FacultyScoreSheets";
 import SuperAdminDashboardShell from "./pages/superadmin/SuperAdminDashboardShell";
 import SuperAdminOverview from "./pages/superadmin/SuperAdminOverview";
 import SchoolsManagement from "./pages/superadmin/SchoolsManagement";
-import Payments from "./pages/superadmin/Payments";
 import Users from "./pages/superadmin/Users";
 import Analytics from "./pages/superadmin/Analytics";
-import Support from "./pages/superadmin/Support";
-import SystemSettings from "./pages/superadmin/SystemSettings";
 import AuditLogs from "./pages/superadmin/AuditLogs";
 
 const queryClient = new QueryClient();
@@ -74,11 +71,8 @@ const App = () => (
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<SuperAdminOverview />} />
             <Route path="schools" element={<SchoolsManagement />} />
-            <Route path="payments" element={<Payments />} />
             <Route path="users" element={<Users />} />
             <Route path="analytics" element={<Analytics />} />
-            <Route path="support" element={<Support />} />
-            <Route path="settings" element={<SystemSettings />} />
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="notifications" element={<NotificationCenter />} />
           </Route>

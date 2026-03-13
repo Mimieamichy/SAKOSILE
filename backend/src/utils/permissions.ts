@@ -96,8 +96,6 @@ export enum Permission {
   ADD_PROVOST = 'add_provost',
   ADD_DEAN = 'add_dean',
   GET_DEAN = 'get_dean',
-  ADD_PG_ADMIN = 'add_pg_admin',
-  VIEW_PG_ADMINS = 'view_pg_admins',
 
 
   //Superadmin
@@ -266,7 +264,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.ADD_PG_ADMIN,
     Permission.GET_ALL_DEPARTMENTS,
     Permission.VIEW_FACULTY_REP,
-    Permission.VIEW_PG_ADMINS,
   ],
   [Role.GENERAL]: [
     Permission.LOGIN,
