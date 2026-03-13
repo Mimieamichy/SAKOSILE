@@ -279,6 +279,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   [Role.SUPER_ADMIN]: [
     Permission.ADD_SCHOOL,
+    Permission.VIEW_PG_ADMINS,
   ],
   [Role.PG_ADMIN]: [
     Permission.PG_ADMIN_PROCESS

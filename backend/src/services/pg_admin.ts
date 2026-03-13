@@ -1,5 +1,4 @@
 import { User } from "../models/index";
-import bcrypt from "bcryptjs";
 import { Role } from '../utils/permissions';
 
 export default class PGAdminService {
