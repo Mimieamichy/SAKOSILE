@@ -106,19 +106,6 @@ export default class LecturerController {
     }
   }
 
-  static async addPGAdmin(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { email, title, firstName, lastName, staffId, role } = req.body;
-      const userId = req.user?.id || ''
-      const school = req.user?.school || ''
-      const pgAdmin = await LecturerService.addPGAdmin({ email, title, firstName, lastName, staffId, role, userId, school});
-      res.json({ success: true, data: pgAdmin });
-    } catch (err: any) {
-      console.log('Error adding PG Admin:', err);
-      res.status(400).json({ success: false, error: 'Failed to add PG Admin', message: err.message });
-    }
-  }
-
 
   static async addExternalExaminer(req: AuthenticatedRequest, res: Response) {
     try {
@@ -176,15 +163,6 @@ export default class LecturerController {
     }
   }
 
-  static async getPGAdmins(req: Request, res: Response) {
-    try {
-      const pgAdmins = await LecturerService.getPGAdmins();
-      res.json({ success: true, data: pgAdmins });
-    } catch (err: any) {
-      console.log(err);
-      res.status(400).json({ success: false, error: 'Failed to get PG Admin', message: err.message });
-    }
-  }
 
 
   static async getExternlExaminer(req: Request, res: Response) {

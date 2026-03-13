@@ -21,6 +21,7 @@ export enum Role {
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   [Role.ADMIN]: ["*"], // All permissions
   [Role.SUPER_ADMIN]: ["*"],
+  [Role.PG_ADMIN]: ["*"],
   [Role.SUPERVISOR]: ["view_dashboard", "manage_students", "view_projects"],
   [Role.STUDENT]: ["view_dashboard", "upload_project", "view_comments"],
   [Role.DEAN]: ["view_dashboard", "manage_faculty", "view_reports"],
