@@ -40,6 +40,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
 export const ROLE_HOME_PATHS: Record<Role, string> = {
   [Role.ADMIN]: "/admin",
   [Role.SUPER_ADMIN]: "/superadmin",
+  [Role.PG_ADMIN]: "/pg_admin",
   [Role.SUPERVISOR]: "/supervisor",
   [Role.STUDENT]: "/student",
   [Role.DEAN]: "/dean",
@@ -53,5 +54,4 @@ export const ROLE_HOME_PATHS: Record<Role, string> = {
   [Role.COLLEGE_REP]: "/supervisor",
   [Role.INTERNAL_EXAMINER]: "/defense-day",
   [Role.MAJOR_SUPERVISOR]: "/supervisor",
-  [Role.PG_ADMIN]: "/pg_admin",
 };

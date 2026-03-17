@@ -62,57 +62,62 @@ export default function AdminStaffManagement() {
 
         // map HODs
         setHods(
-          (hodRes.data.data || []).map((raw: any) => ({
-            id: raw._id,
-            title: raw.user.title,
-            name: `${raw.user?.firstName ?? ""} ${
-              raw.user?.lastName ?? ""
-            }`.trim(),
-            email: raw.user?.email ?? "",
-            dept: raw.department ?? raw.departmentName ?? raw.department?.name,
-            faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
-          }))
+          (hodRes.data.data || []).map((raw: any) => {
+            const u = raw.user || {};
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+              dept: raw.department ?? raw.departmentName ?? raw.department?.name,
+              faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
+            };
+          })
         );
         console.log("HODs:", hods);
         console.log("Raw HODs:", hodRes.data.data);
 
         // map Provosts
         setProvosts(
-          (provRes.data.data || []).map((raw: any) => ({
-            id: raw._id,
-            title: raw.user.title,
-            name: `${raw.user?.firstName ?? ""} ${
-              raw.user?.lastName ?? ""
-            }`.trim(),
-            email: raw.user?.email ?? "",
-          }))
+          (provRes.data.data || []).map((raw: any) => {
+            const u = raw.user || {};
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+            };
+          })
         );
         console.log("Provosts:", provosts);
         console.log("Raw Provosts:", provRes.data.data);
         // map Deans
         setDeans(
-          (deanRes.data.data || []).map((raw: any) => ({
-            id: raw._id,
-            title: raw.user.title,
-            name: `${raw.user?.firstName ?? ""} ${
-              raw.user?.lastName ?? ""
-            }`.trim(),
-            email: raw.user?.email ?? "",
-            faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
-          }))
+          (deanRes.data.data || []).map((raw: any) => {
+            const u = raw.user || {};
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+              faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
+            };
+          })
         );
         console.log("Deans:", deans);
 
         // map PGAdmins
         setPgAdmins(
-          (pgRes.data.data || []).map((raw: any) => ({
-            id: raw._id,
-            title: raw.user.title,
-            name: `${raw.user?.firstName ?? ""} ${
-              raw.user?.lastName ?? ""
-            }`.trim(),
-            email: raw.user?.email ?? "",
-          }))
+          (pgRes.data.data || []).map((raw: any) => {
+            // PG Admin API returns User objects directly, not Lecturer objects
+            const u = raw.user || raw;
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+            };
+          })
         );
         console.log("PGAdmins:", pgAdmins);
       } catch (err) {

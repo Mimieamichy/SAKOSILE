@@ -39,6 +39,10 @@ import SchoolsManagement from "./pages/superadmin/SchoolsManagement";
 import Users from "./pages/superadmin/Users";
 import Analytics from "./pages/superadmin/Analytics";
 import AuditLogs from "./pages/superadmin/AuditLogs";
+import PGAdminDashboardShell from "./pages/pg_admin/PGAdminDashboardShell";
+import PGAdminDashboard from "./pages/pg_admin/PGAdminDashboard";
+import PGAdminChecklist from "./pages/pg_admin/PGAdminChecklist";
+import PGAdminNotifications from "./pages/pg_admin/PGAdminNotifications";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +79,20 @@ const App = () => (
             <Route path="analytics" element={<Analytics />} />
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="notifications" element={<NotificationCenter />} />
+          </Route>
+
+          <Route
+            path="/pg_admin"
+            element={
+              <ProtectedRoute allowedRoles={[Role.PG_ADMIN]}>
+                <PGAdminDashboardShell />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<PGAdminDashboard />} />
+            <Route path="checklist" element={<PGAdminChecklist />} />
+            <Route path="notifications" element={<PGAdminNotifications />} />
           </Route>
           
           <Route 

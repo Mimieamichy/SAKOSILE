@@ -893,7 +893,7 @@ const StudentSessionManagement = () => {
                     </SelectItem>
                   ))
                 ) : (
-                  <SelectItem disabled>No sessions available</SelectItem>
+                  <SelectItem value="none" disabled>No sessions available</SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -918,9 +918,9 @@ const StudentSessionManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {facultiesLoading ? (
-                    <SelectItem disabled>Loading faculties...</SelectItem>
+                    <SelectItem value="none" disabled>Loading faculties...</SelectItem>
                   ) : facultiesError ? (
-                    <SelectItem disabled>{facultiesError}</SelectItem>
+                    <SelectItem value="none" disabled>{facultiesError}</SelectItem>
                   ) : faculties.length ? (
                     faculties.map((f) => (
                       <SelectItem key={f._id} value={f._id}>
@@ -928,7 +928,7 @@ const StudentSessionManagement = () => {
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem disabled>No faculties</SelectItem>
+                    <SelectItem value="none" disabled>No faculties</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -958,9 +958,9 @@ const StudentSessionManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {departmentsLoading ? (
-                    <SelectItem disabled>Loading departments...</SelectItem>
+                    <SelectItem value="none" disabled>Loading departments...</SelectItem>
                   ) : departmentsError ? (
-                    <SelectItem disabled>{departmentsError}</SelectItem>
+                    <SelectItem value="none" disabled>{departmentsError}</SelectItem>
                   ) : departments.length ? (
                     departments.map((d) => (
                       <SelectItem key={d._id} value={d._id}>
@@ -968,7 +968,7 @@ const StudentSessionManagement = () => {
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem disabled>
+                    <SelectItem value="none" disabled>
                       {selectedFacultyId
                         ? "No departments"
                         : "Select faculty first"}
@@ -1005,9 +1005,9 @@ const StudentSessionManagement = () => {
               </SelectTrigger>
               <SelectContent>
                 {departmentsLoading ? (
-                  <SelectItem disabled>Loading departments...</SelectItem>
+                  <SelectItem value="none" disabled>Loading departments...</SelectItem>
                 ) : departmentsError ? (
-                  <SelectItem disabled>{departmentsError}</SelectItem>
+                  <SelectItem value="none" disabled>{departmentsError}</SelectItem>
                 ) : departments.length ? (
                   departments.map((d) => (
                     <SelectItem key={d._id} value={d._id}>
@@ -1015,7 +1015,7 @@ const StudentSessionManagement = () => {
                     </SelectItem>
                   ))
                 ) : (
-                  <SelectItem disabled>No departments</SelectItem>
+                  <SelectItem value="none" disabled>No departments</SelectItem>
                 )}
               </SelectContent>
             </Select>
