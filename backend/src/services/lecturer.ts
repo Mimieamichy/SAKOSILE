@@ -158,15 +158,18 @@ export default class LecturerService {
 
         const roles = [Role.HOD, Role.GENERAL, Role.LECTURER];
 
+        const schoolId = await User.findById(data.userId).then(user => user?.schoolId);
+
 
         // Create User with dynamic roles
         const user = await User.create({
             email: data.email,
-            password: data.email, // for development; hash in pre-save
+            password: data.email, 
             roles,
             firstName: data.firstName,
             lastName: data.lastName,
             title: data.title,
+            schoolId,
         });
 
         const newLecturer = await Lecturer.create({
@@ -208,6 +211,9 @@ export default class LecturerService {
 
         const roles = [Role.DEAN, Role.GENERAL, Role.LECTURER];
 
+        const schoolId = await User.findById(data.userId).then(user => user?.schoolId);
+
+
         // Create User with dynamic roles
         const user = await User.create({
             email: data.email,
@@ -216,6 +222,7 @@ export default class LecturerService {
             firstName: data.firstName,
             lastName: data.lastName,
             title: data.title,
+            schoolId,
         });
 
         const newLecturer = await Lecturer.create({
@@ -256,8 +263,8 @@ export default class LecturerService {
         }
 
         const roles = [Role.PROVOST, Role.GENERAL, Role.LECTURER];
-    
 
+        const schoolId = await User.findById(data.userId).then(user => user?.schoolId);
 
         // Create User with dynamic roles
         const user = await User.create({
@@ -267,6 +274,7 @@ export default class LecturerService {
             firstName: data.firstName,
             lastName: data.lastName,
             title: data.title,
+            schoolId,
         });
 
         const newLecturer = await Lecturer.create({
@@ -292,6 +300,7 @@ export default class LecturerService {
     }) {
         const roles = [Role.EXTERNAL_EXAMINER, Role.GENERAL, Role.PANEL_MEMBER];
 
+        const schoolId = await User.findById(data.userId).then(user => user?.schoolId);
 
         // Create User with dynamic roles
         const user = await User.create({
@@ -301,6 +310,7 @@ export default class LecturerService {
             firstName: data.firstName,
             lastName: data.lastName,
             title: data.title,
+            schoolId,
         });
 
         const exernal_examiner = await Lecturer.create({
