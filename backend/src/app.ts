@@ -5,6 +5,9 @@ import path from 'path';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
+import morgan from 'morgan'
+
+
 
 
 dotenv.config();
@@ -33,6 +36,7 @@ const app = express();
 
 //Security Middlewares
 app.use(helmet()); // sets secure HTTP headers
+app.use(morgan('dev'))
 
 // app.use(cors({
 //   origin: process.env.FRONTEND_URL, // restrict to frontend domain in prod

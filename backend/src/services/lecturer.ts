@@ -1,7 +1,6 @@
 import { Lecturer, User, Student } from '../models/index';
 import { Role } from '../utils/permissions';
 import NotificationService from '../services/notification'
-import UserService from './user';
 import SchoolService from './school';
 
 
@@ -127,7 +126,7 @@ export default class LecturerService {
             staffId: data.staffId,
         });
         
-        await SchoolService.incrementCount(school, 'lecturer');
+        await SchoolService.incrementCount(school, 'staff');
         return newLecturer;
     }
 
@@ -180,7 +179,7 @@ export default class LecturerService {
             school: data.school,
         });
 
-        await SchoolService.incrementCount(data.school, 'lecturer');
+        await SchoolService.incrementCount(data.school, 'staff');
         return newLecturer;
     }
 
@@ -233,7 +232,7 @@ export default class LecturerService {
             staffId: data.staffId,
         });
 
-        await SchoolService.incrementCount(data.school, 'lecturer');
+        await SchoolService.incrementCount(data.school, 'staff');
         return newLecturer;
     }
 
@@ -269,7 +268,7 @@ export default class LecturerService {
         // Create User with dynamic roles
         const user = await User.create({
             email: data.email,
-            password: data.email, // for development; hash in pre-save
+            password: data.email, 
             roles,
             firstName: data.firstName,
             lastName: data.lastName,
@@ -284,7 +283,9 @@ export default class LecturerService {
             faculty: data.faculty,
             staffId: data.staffId,
         });
-        await SchoolService.incrementCount(data.school, 'lecturer');
+
+        console.log('hooooopp', data.school)
+        await SchoolService.incrementCount(data.school, 'staff');
         return newLecturer;
     }
 
@@ -321,7 +322,7 @@ export default class LecturerService {
             staffId: 'none',
         });
 
-        await SchoolService.incrementCount(data.school, 'external_examiner');
+        await SchoolService.incrementCount(data.school, 'staff');
         return exernal_examiner;
     }
 

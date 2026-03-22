@@ -72,11 +72,11 @@ export default class SchoolService {
     return await School.findById(new Types.ObjectId(schoolId));
   }
 
-  static async incrementCount(schoolName: string, type: 'lecturer' | 'student' | 'external_examiner') {
-    return await School.findOneAndUpdate(
-      { name: schoolName },
-      { $inc: { [type]: 1 } },
-      { new: true } 
-    );
-  }
+  static async incrementCount( schoolName: string, type: 'students' | 'staff') {
+  return await School.findOneAndUpdate(
+    { name: schoolName },
+    { $inc: { [type]: 1 } },
+    { new: true }
+  );
+}
 }

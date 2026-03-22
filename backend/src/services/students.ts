@@ -81,7 +81,7 @@ export default class StudentService {
             stageScores: getDefaultStageScores(data.level)
         });
 
-        await SchoolService.incrementCount(school, 'student');
+        await SchoolService.incrementCount(school, 'students');
 
         return await student.save();
     }

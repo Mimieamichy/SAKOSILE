@@ -98,6 +98,7 @@ export default class LecturerController {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
       const userId = req.user?.id || ''
       const school = req.user?.school || ''
+      console.log('WWWW', req.user)
       const provost = await LecturerService.addProvost({ email, title, firstName, lastName, staffId, department, faculty , role, userId, school});
       res.json({ success: true, data: provost });
     } catch (err: any) {

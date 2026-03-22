@@ -56,7 +56,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const decoded = jwt.verify(token, JWT_SECRET) as {
       id: string;
       role: string[];
-      schoolId?: string; 
+      school?: string; 
       permissions?: string[];
       [key: string]: any;
     };
@@ -64,7 +64,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const user = {
       id: decoded.id,
       role: decoded.roles,
-      schoolId: decoded.schoolId || null,
+      school: decoded.school || null,
       permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
     };
     (req as AuthenticatedRequest).user = user;

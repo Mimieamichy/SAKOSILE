@@ -1,5 +1,5 @@
 // src/services/AuthService.ts
-import { User, Student, Lecturer } from '../models/index';
+import { User, Student, Lecturer, School } from '../models/index';
 import jwt from 'jsonwebtoken';
 import EmailService from '../utils/helpers';
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -33,10 +33,17 @@ export default class AuthService {
       throw new Error("User is not assigned to a school");
     }
 
+
+
     let department = "none";
     let faculty = "none";
     let lecturerId = "none";
     let schoolName = "none";
+
+    if (roles.includes(Role.ADMIN)){
+      const school = await School.findById(user.schoolId);
+      schoolName = school?.name || 'none';
+    }
 
     // STUDENT LOGIC
     if (roles.includes(Role.STUDENT)) {
@@ -69,8 +76,8 @@ export default class AuthService {
 
       department = lecturer.department || "none";
       faculty = lecturer.faculty || "none";
-      const userInfo = await UserService.getUserById(user._id as string);
-      schoolName = (userInfo.schoolId as any)?.name || 'N/A';
+      const school = await School.findById(user.schoolId);
+      schoolName = school?.name || 'none';
       lecturerId = String(lecturer._id);
     }
 
