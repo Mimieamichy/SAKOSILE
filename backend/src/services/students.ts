@@ -37,6 +37,7 @@ export default class StudentService {
         userId: string;
         session: string;
         projectTopic: string;
+        school: string;
     }) {
         // Step 1: Check if student with matricNo or email already exists
         const existingUser = await User.findOne({ email: data.email });
@@ -49,13 +50,16 @@ export default class StudentService {
             throw new Error('Student with this matric number already exists');
         }
 
+        const schoolId = await User.findById(data.userId).then(user => user?.schoolId);
+
         // Step 2: Create the user
         const user = await User.create({
             email: data.email,
             password: data.email, // You can hash this in a pre-save hook
             firstName: data.firstName,
             lastName: data.lastName,
-            roles: [Role.STUDENT, Role.GENERAL]
+            roles: [Role.STUDENT, Role.GENERAL],
+            schoolId,
         });
 
         // Step 3: Get departement and faculty from user
@@ -66,7 +70,6 @@ export default class StudentService {
         // Get lecturer's department and faculty if no lecturer exists return null
         let faculty = lecturer?.faculty ?? "none";
         let department = lecturer?.department ?? "none";
-        let school = lecturer?.school ?? "none";
 
         // Step 4: Create the student
         const student = new Student({
@@ -75,13 +78,13 @@ export default class StudentService {
             level: data.level,
             department,
             faculty,
-            school,
+            school: data.school,
             session: data.session,
             projectTopic: data.projectTopic,
             stageScores: getDefaultStageScores(data.level)
         });
 
-        await SchoolService.incrementCount(school, 'students');
+        await SchoolService.incrementCount(data.school, 'students');
 
         return await student.save();
     }

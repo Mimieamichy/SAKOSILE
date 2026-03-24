@@ -32,6 +32,7 @@ export default class StudentController {
         userId,
         session,
         projectTopic,
+        school,
       });
       const studentData = await StudentService.getOneStudent(String(newStudent._id))
       if (!studentData) {

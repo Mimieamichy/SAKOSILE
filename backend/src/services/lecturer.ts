@@ -82,6 +82,7 @@ export default class LecturerService {
         userId: string;
         staffId: string;
         role: string;
+        school: string;
     }) {
 
         const normalizedRole = data.role.toLowerCase();
@@ -105,7 +106,8 @@ export default class LecturerService {
         // Get lecturer's department and faculty if no lecturer exists return null
         let faculty = lecturer?.faculty ?? "none";
         let department = lecturer?.department ?? "none";
-        let school = lecturer?.school ?? "none";
+
+        const schoolId = await User.findById(data.userId).then(user => user?.schoolId);
 
 
         // Create User with dynamic roles
@@ -116,17 +118,18 @@ export default class LecturerService {
             firstName: data.firstName,
             lastName: data.lastName,
             title: data.title,
+            schoolId,
         });
 
         const newLecturer = await Lecturer.create({
             user: user._id,
             department,
             faculty,
-            school,
             staffId: data.staffId,
+            school: data.school,
         });
         
-        await SchoolService.incrementCount(school, 'staff');
+        await SchoolService.incrementCount(data.school, 'staff');
         return newLecturer;
     }
 
