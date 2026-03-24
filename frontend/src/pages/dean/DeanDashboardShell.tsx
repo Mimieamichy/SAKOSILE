@@ -17,7 +17,7 @@ const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function DeanDashboardShell() {
   const { user, logout, token } = useAuthStore();
-  const role = user?.roles?.[0] || "Dean";
+  const username = user?.userName
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -102,7 +102,7 @@ export default function DeanDashboardShell() {
         {/* Right-side Controls */}
         <div className="flex items-center gap-4">
           <span className="hidden sm:inline capitalize text-gray-600">
-            Welcome, {role}
+            Welcome, {username}
           </span>
           <div className="relative">
             <Bell

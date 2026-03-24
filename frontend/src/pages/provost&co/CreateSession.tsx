@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/store/authStore";
 
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
@@ -27,6 +28,7 @@ const CreateSession = ({ isOpen, onClose, onCreated }: Props) => {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { token } = useAuthStore();
 
   if (!isOpen) return null;
 
@@ -35,7 +37,6 @@ const CreateSession = ({ isOpen, onClose, onCreated }: Props) => {
 
   setLoading(true);
   try {
-    const token = localStorage.getItem("token");
     const response = await fetch(`${baseUrl}/session/`, {
       method: "POST",
       headers: {
@@ -69,12 +70,12 @@ const CreateSession = ({ isOpen, onClose, onCreated }: Props) => {
     onClose();
     console.log("Session created successfully:", result.data);
     
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
     
     toast({
       title: "Error",
-      description: "Failed to create session. See console for details.",
+      description: err.message || "Failed to create session.",
       variant: "destructive",
     });
   } finally {

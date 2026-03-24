@@ -105,7 +105,7 @@ const App = () => (
           >
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<HodDashboardOverview />} />
-            <Route path="provost-overview" element={<ProvostDashboardOverview onCreateSessionClick={() => {}} />} />
+            <Route path="provost-overview" element={<ProvostDashboardOverview />} />
             <Route path="pg-lecturers" element={<PgLecturerManagement />} />
             <Route path="external-examiners" element={<PgLecturerManagement />} />
             <Route path="student-management" element={<StudentSessionManagement />} />

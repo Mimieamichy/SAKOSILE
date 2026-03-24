@@ -11,6 +11,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Role } from "@/config/roles";
 import { Download, Send, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 // ---------- add after imports ----------
 /** Convert a stage key like "proposal_defense" to "Proposal Defense" */
@@ -659,8 +660,12 @@ export default function MyStudentsPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg shadow bg-white">
-        {displayedStudents.length === 0 ? (
-          <div className="p-6 bg-white rounded shadow text-gray-600 text-center">
+        {(selectedDegree === "MSc" ? loadingMsc : loadingPhd) ? (
+          <div className="py-10">
+            <LoadingSpinner text="Loading students..." />
+          </div>
+        ) : displayedStudents.length === 0 ? (
+          <div className="p-6 bg-white rounded text-gray-600 text-center">
             No students assigned yet.
           </div>
         ) : (

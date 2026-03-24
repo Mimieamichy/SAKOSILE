@@ -6,10 +6,12 @@ import { useAuthStore } from "@/store/authStore";
 import { Role } from "@/config/roles";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
+import { useOutletContext } from "react-router-dom";
 
 export default function HodDashboardOverview() {
   const { user, token, hasRole } = useAuthStore(); 
   const { toast } = useToast();
+  const context = useOutletContext<{ setSessionModalOpen: (open: boolean) => void }>();
 
   const [lecturersCount, setLecturersCount] = useState<number | null>(null);
   const [studentsCount, setStudentsCount] = useState<number | null>(null);
@@ -145,6 +147,8 @@ export default function HodDashboardOverview() {
           </div>
         </div>
       </div>
+
+      
     </div>
   );
 }
