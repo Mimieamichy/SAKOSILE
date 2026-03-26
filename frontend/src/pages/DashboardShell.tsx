@@ -180,7 +180,7 @@ export default function DashboardShell() {
 
       {/* Main content */}
       <main className="container mx-auto px-4 py-8">
-        <Outlet />
+        <Outlet context={{ setSessionModalOpen }} />
       </main>
 
       {/* Create Session Modal (HOD only) */}

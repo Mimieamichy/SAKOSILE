@@ -260,7 +260,7 @@ const ProvostActivityLog: React.FC = () => {
           console.error("loadLogs error:", err);
           toast({
             title: "Error loading activity log",
-            description: err?.message ?? "See console for details",
+            description: err?.message ?? "Failed to load activity logs.",
             variant: "destructive",
           });
         }

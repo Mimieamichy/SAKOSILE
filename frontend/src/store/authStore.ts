@@ -77,6 +77,7 @@ export const useAuthStore = create<AuthState>()(
             lecturerId: rawUser.lecturer,
           };
 
+          console.log("[AuthStore] User login profile:", userProfile);
           set({ user: userProfile, token: authToken, isAuthenticated: true });
           axios.defaults.headers.common["Authorization"] = `Bearer ${authToken}`;
           return userProfile;

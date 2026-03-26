@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
+import { useOutletContext } from "react-router-dom";
 
 interface HodDashboardOverviewProps {
-  onCreateSessionClick: () => void;
+  onCreateSessionClick?: () => void;
 }
 
 export default function ProvostDashboardOverview({
@@ -15,6 +16,7 @@ export default function ProvostDashboardOverview({
 }: HodDashboardOverviewProps) {
   const { user, token } = useAuthStore(); 
   const { toast } = useToast();
+  const context = useOutletContext<{ setSessionModalOpen: (open: boolean) => void }>();
 
   const [externalCount, setExternalCount] = useState<number | null>(null);
   const [collegeRepsCount, setCollegeRepsCount] = useState<number | null>(null);
@@ -130,7 +132,13 @@ export default function ProvostDashboardOverview({
       <div className="flex justify-end">
         <Button
           className="bg-amber-700 text-white w-full sm:w-auto py-2 px-4 text-sm sm:text-base rounded-md transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 focus-visible:ring-offset-2"
-          onClick={onCreateSessionClick}
+          onClick={() => {
+            if (onCreateSessionClick) {
+              onCreateSessionClick();
+            } else if (context?.setSessionModalOpen) {
+              context.setSessionModalOpen(true);
+            }
+          }}
         >
           + New Session
         </Button>

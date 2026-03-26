@@ -20,6 +20,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Role } from "@/config/roles";
 import AssignCollegeRepModal from "./AssignCollegeRepModal";
 import waterMark from "../fulafia logo.png";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 
 interface StudentFromAPI {
@@ -150,6 +151,7 @@ const StudentSessionManagement = () => {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [totalStudents, setTotalStudents] = useState<number>(0);
+  const [studentsLoading, setStudentsLoading] = useState(false);
 
   const [selectedDefense, setSelectedDefense] = useState<string>(
     isProvost
@@ -369,6 +371,7 @@ const StudentSessionManagement = () => {
     let cancelled = false;
 
     const fetchStudents = async () => {
+      setStudentsLoading(true);
       if (!selectedSession) {
         if (!noSessionWarnedRef.current) {
           toast({
@@ -380,6 +383,7 @@ const StudentSessionManagement = () => {
         }
         setStudents([]);
         setTotalStudents(0);
+        setStudentsLoading(false);
         return;
       }
       noSessionWarnedRef.current = false;
@@ -388,6 +392,7 @@ const StudentSessionManagement = () => {
       if ((isProvost || isDean) && !departmentNameLocal) {
         setStudents([]);
         setTotalStudents(0);
+        setStudentsLoading(false);
         return;
       }
 
@@ -442,6 +447,8 @@ const StudentSessionManagement = () => {
           setStudents([]);
           setTotalStudents(0);
         }
+      } finally {
+        if (!cancelled) setStudentsLoading(false);
       }
     };
 
@@ -1026,7 +1033,7 @@ const StudentSessionManagement = () => {
         <div className="mt-4 flex items-center justify-between">
           <div />
           <div className="flex items-center gap-3">
-            {!isProvost && selectedDefense !== "all" && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && (
+            {(isHod || isPgc) && selectedDefense !== "all" && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && (
               <Button
                 className="bg-amber-700 hover:bg-amber-800 text-white"
                 onClick={() => {
@@ -1042,6 +1049,11 @@ const StudentSessionManagement = () => {
 
         {/* Students Table */}
         <div className="mt-6 overflow-x-auto">
+          {studentsLoading ? (
+            <div className="py-10">
+              <LoadingSpinner text="Loading students..." />
+            </div>
+          ) : (
           <table className="min-w-full text-left">
             <thead>
               <tr className="bg-gray-50">
@@ -1245,6 +1257,7 @@ const StudentSessionManagement = () => {
               )}
             </tbody>
           </table>
+          )}
         </div>
 
         {/* Pagination */}

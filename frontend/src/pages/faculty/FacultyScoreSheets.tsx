@@ -40,6 +40,7 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
   const { user, hasRole } = useAuthStore();
   const { toast } = useToast();
   
+  const STORAGE_KEY = "faculty-score-sheets";
   // Requirement 6: Role Integration
   const isFacultyRep = hasRole(Role.FACULTY_PG_REP);
 
@@ -106,6 +107,31 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
     setActiveStage(activeLevel === "MSc" ? mscStages[0] : phdStages[0]);
   }, [activeLevel]);
 
+  // Load persisted score sheets created by faculty officer (frontend-only persistence)
+  useEffect(() => {
+    try {
+      const txt = localStorage.getItem(STORAGE_KEY);
+      if (txt) {
+        const parsed = JSON.parse(txt) as ScoreSheetData[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setScoreSheets(parsed);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist whenever score sheets change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(scoreSheets));
+    } catch {
+      /* ignore */
+    }
+  }, [scoreSheets]);
+
   // Find the active score sheet or create a default one
   const currentSheet = useMemo(() => {
     return scoreSheets.find(s => s.level === activeLevel && s.stage === activeStage) || {
@@ -120,6 +146,14 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
       history: [],
     };
   }, [scoreSheets, activeLevel, activeStage]);
+
+  // Filter history to show previous sheets created by the current faculty officer
+  const historyToShow = useMemo(() => {
+    const uname = user?.userName?.trim();
+    if (!uname) return currentSheet.history;
+    const mine = currentSheet.history.filter(h => h.userName === uname);
+    return mine.length ? mine : currentSheet.history;
+  }, [currentSheet.history, user?.userName]);
 
   // Requirement 2: Access Control visual indicators
   if (!isFacultyRep) {
@@ -272,9 +306,9 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[300px]">
-                  {currentSheet.history.length > 0 ? (
+                  {historyToShow.length > 0 ? (
                     <div className="divide-y divide-gray-100">
-                      {currentSheet.history.map((v) => (
+                      {historyToShow.map((v) => (
                         <div key={v.id} className="p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex justify-between items-start mb-1">
                             <span className="text-xs font-semibold text-gray-500">{v.timestamp}</span>
