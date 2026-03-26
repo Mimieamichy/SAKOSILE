@@ -43,8 +43,13 @@ export default class ScoreSheetController {
    static async getSingleFacultyScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
       const {faculty} = req.params
-      const { level, stage } = req.body;
-      const scoreSheet = await ScoreSheetService.getSingleFacultyScoreSheet(faculty, level, stage);
+      const { level, stage } = req.query;
+
+      if (!faculty || typeof stage !== 'string' || !level) {
+        throw new Error('faculty, level and stage are required in the right format');
+      }
+
+      const scoreSheet = await ScoreSheetService.getSingleFacultyScoreSheet(faculty, level as 'msc' | 'phd', stage);
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
