@@ -140,7 +140,7 @@ static async getGenScoreSheet(req: AuthenticatedRequest, res: Response) {
     }
   }
 
-  static async deleteCriterionDeptScoreSheet(req: AuthenticatedRequest, res: Response) {
+  static async deleteCriterionFacultyScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
       const { criterionId } = req.params;
       const userId = req.user?.id || ''
