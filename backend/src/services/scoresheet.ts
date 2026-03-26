@@ -3,46 +3,72 @@ import mongoose from 'mongoose';
 
 
 export default class ScoreSheetService {
-    static async createDeptScoreSheet(criteria: { name: string; weight: number }[], userId: string) {
+  static async createFacultyScoreSheet(criteria: { name: string; weight: number }[], level: 'msc' | 'phd', stage: string, userId: string) {
     const totalWeight = criteria.reduce((sum, c) => sum + c.weight, 0);
-    if (totalWeight !== 100) throw new Error("Criteria weights must add up to 100");
-
-    const lecturer = await Lecturer.findOne({ user: userId });
-    if (!lecturer || !lecturer.department) {
-      throw new Error("Lecturer not found or department = Lecturer.findById(userId) not set");
+    if (Math.round(totalWeight) !== 100) {
+      throw new Error('Criteria weights must add up to 100');
     }
 
-    const tempId = new mongoose.Types.ObjectId();
+    const lecturer = await Lecturer.findById(userId);
+    if (!lecturer || !lecturer.faculty) {
+      throw new Error('Lecturer not found or faculty not assigned');
+    }
 
+    // deactivate current active one (if exists)
+    await ScoreSheet.updateMany(
+      {
+        faculty: lecturer.faculty,
+        level,
+        stage,
+        isActive: true,
+      },
+      { isActive: false }
+    );
 
+    // create new active one
     const scoreSheet = await ScoreSheet.create({
-      defence: tempId,
-      department: lecturer.department,
+      faculty: lecturer.faculty,
+      level,
+      stage,
       criteria,
       entries: [],
+      isActive: true,
     });
 
     return scoreSheet;
   }
 
-  static async getDeptScoreSheet(department: string) {
-    return await ScoreSheet.findOne({ department })
+  static async getSingleFacultyScoreSheet(faculty: string, level: 'msc' | 'phd', stage: string) {
+    const sheet = await ScoreSheet.findOne({faculty, level, stage, isActive: true});
 
+    if (!sheet) {
+      throw new Error('Active ScoreSheet not found');
+    }
+
+    return sheet;
   }
 
-  static async UpdateCriterionDeptScoreSheet(
+  static async getAllFacultyScoreSheets(faculty: string, level?: 'msc' | 'phd', stage?: string) {
+    return await ScoreSheet.find({
+      faculty,
+      ...(level && { level }),
+      ...(stage && { stage }),
+    }).sort({ createdAt: -1 }); // latest first
+  }
+
+  static async UpdateCriterionFacultyScoreSheet(
     userId: string,
     criterionId: string,
     update: { name?: string; weight?: number }
   ) {
     const lecturer = await Lecturer.findOne({ user: userId });
-    if (!lecturer || !lecturer.department) {
-      throw new Error("Lecturer not found or department not set");
+    if (!lecturer || !lecturer.faculty) {
+      throw new Error("Lecturer not found or faculty not set");
     }
 
-    const scoreSheet = await ScoreSheet.findOne({ department: lecturer.department });
+    const scoreSheet = await ScoreSheet.findOne({ faculty: lecturer.faculty });
     if (!scoreSheet) {
-      throw new Error("ScoreSheet not found for department");
+      throw new Error("ScoreSheet not found for faculty");
     }
 
     const criterion = scoreSheet.criteria.find((c: any) => c._id.toString() === criterionId);
@@ -63,13 +89,13 @@ export default class ScoreSheetService {
     return scoreSheet;
   }
 
-  static async deleteCriterionDeptScoreSheet(userId: string, criterionId: string) {
+  static async deleteCriterionFacultyScoreSheet(userId: string, criterionId: string) {
     const lecturer = await Lecturer.findOne({ user: userId });
-    if (!lecturer || !lecturer.department) {
-      throw new Error("Lecturer not found or department not set");
+    if (!lecturer || !lecturer.faculty) {
+      throw new Error("Lecturer not found or faculty not set");
     }
 
-    const scoreSheet = await ScoreSheet.findOne({ department: lecturer.department });
+    const scoreSheet = await ScoreSheet.findOne({ faculty: lecturer.faculty });
     if (!scoreSheet) {
       throw new Error("ScoreSheet not found for department");
     }

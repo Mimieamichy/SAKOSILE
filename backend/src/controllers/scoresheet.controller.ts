@@ -18,20 +18,20 @@ export default class ScoreSheetController {
     
     
 /** Create a department-wide template score sheet */
-  static async createDeptScoreSheet(req: AuthenticatedRequest, res: Response) {
+  static async createFacultyScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
-      const { criteria } = req.body;
+      const { criteria, level, stage } = req.body;
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
-      const school = req.user?.school || ''
+      const school = req.user?.school || '' 
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
 
       const lecturer = await LecturerService.getLecturerById(userId)
-      const department = lecturer?.department || 'N/A'
+      const faculty = lecturer?.faculty || 'N/A'
       
-      const scoreSheet = await ScoreSheetService.createDeptScoreSheet(criteria, userId);
-      await ActivityLogService.logActivity(userId, userName, role, 'created a Department ', 'Score sheet for', department , school);
+      const scoreSheet = await ScoreSheetService.createFacultyScoreSheet(criteria, level, stage, userId);
+      await ActivityLogService.logActivity(userId, userName, role, 'created a Faculty ', 'Score sheet for', faculty , school);
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
@@ -40,19 +40,32 @@ export default class ScoreSheetController {
   }
 
 
-   static async getDeptScoreSheet(req: AuthenticatedRequest, res: Response) {
+   static async getSingleFacultyScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
-      const {department} = req.params
-      const scoreSheet = await ScoreSheetService.getDeptScoreSheet(department);
+      const {faculty} = req.params
+      const { level, stage } = req.body;
+      const scoreSheet = await ScoreSheetService.getSingleFacultyScoreSheet(faculty, level, stage);
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
-      res.status(400).json({success: false, error: 'Failed to get department score sheet', message: err.message});
+      res.status(400).json({success: false, error: 'Failed to get Faculty score sheet', message: err.message});
     }
   }
 
+
+   static async getAllFacultyScoreSheets(req: AuthenticatedRequest, res: Response) {
+    try {
+      const {faculty} = req.params
+      const { level, stage } = req.body;
+      const scoreSheets = await ScoreSheetService.getAllFacultyScoreSheets(faculty, level, stage);
+      res.json({ success: true, data: scoreSheets });
+    } catch (err: any) {
+      console.log(err)
+      res.status(400).json({success: false, error: 'Failed to get Faculty score sheet history', message: err.message});
+    }
+  }
   
-  static async UpdateCriterionDeptScoreSheet(req: AuthenticatedRequest, res: Response) {
+  static async UpdateCriterionFacultyScoreSheet(req: AuthenticatedRequest, res: Response) {
     try {
       const { criteria } = req.body;
       const { criterionId } = req.params;
@@ -63,10 +76,10 @@ export default class ScoreSheetController {
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
 
       const lecturer = await LecturerService.getLecturerById(userId)
-      const department = lecturer?.department || 'N/A'
+      const faculty = lecturer?.faculty || 'N/A'
       
-      const scoreSheet = await ScoreSheetService.UpdateCriterionDeptScoreSheet(userId, criterionId, criteria);
-      await ActivityLogService.logActivity(userId, userName, role, 'Updated a Department ', 'ScoreSheet Criterion', department, school);
+      const scoreSheet = await ScoreSheetService.UpdateCriterionFacultyScoreSheet(userId, criterionId, criteria);
+      await ActivityLogService.logActivity(userId, userName, role, 'Updated a Faculty ', 'ScoreSheet Criterion', faculty, school);
       res.json({ success: true, data: scoreSheet });
     } catch (err: any) {
       console.log(err)
@@ -137,10 +150,10 @@ static async getGenScoreSheet(req: AuthenticatedRequest, res: Response) {
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`
 
       const lecturer = await LecturerService.getLecturerById(userId)
-      const department = lecturer?.department || 'N/A'
+      const faculty = lecturer?.faculty || 'N/A'
       
-      const deletedId = await ScoreSheetService.deleteCriterionDeptScoreSheet(userId, criterionId);
-      await ActivityLogService.logActivity(userId, userName, role, 'Deleted a Department ', 'ScoreSheet Criterion', department, school);
+      const deletedId = await ScoreSheetService.deleteCriterionFacultyScoreSheet(userId, criterionId);
+      await ActivityLogService.logActivity(userId, userName, role, 'Deleted a Department ', 'ScoreSheet Criterion', faculty, school);
       
       res.json({ success: true, data: deletedId });
     } catch (err: any) {

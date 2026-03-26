@@ -41,7 +41,7 @@ export enum Permission {
   VIEW_PROJECT_BY_DEPARTMENT = 'view_project_by_department',
 
   // PG Coord
-  GENERATE_DEPT_SCORE_SHEET = 'generate_dept_score_sheet',
+  GENERATE_FACULTY_SCORE_SHEET = 'generate_faculty_score_sheet',
   ADD_STUDENTS = 'add_students',
   EDIT_STUDENT = 'edit_student',
   DELETE_STUDENT = 'delete_student',
@@ -160,7 +160,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.ADD_LECTURER,
     Permission.EDIT_LECTURER,
     Permission.DELETE_LECTURER,
-    Permission.GENERATE_DEPT_SCORE_SHEET,
     Permission.ADD_STUDENTS,
     Permission.VIEW_ALL_STUDENTS,
     Permission.VIEW_ALL_SESSIONS,
@@ -218,6 +217,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   [Role.FACULTY_PG_REP]: [
     Permission.SCORE_STUDENT_GENERAL,
+    Permission.GENERATE_FACULTY_SCORE_SHEET,
   ],
   [Role.INTERNAL_EXAMINER]: [
     Permission.DOWNLOAD_PROJECT,
@@ -282,7 +282,13 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.VIEW_PG_ADMINS,
   ],
   [Role.PG_ADMIN]: [
-    Permission.PG_ADMIN_PROCESS
+    Permission.PG_ADMIN_PROCESS,
+    Permission.GET_ALL_DEPARTMENTS,
+    Permission.GET_ALL_FACULTY_DEPT,
+    Permission.VIEW_ALL_SESSIONS,
+    Permission.VIEW_ALL_STUDENTS,
+    Permission.VIEW_ALL_PROJECTS,
+    Permission.VIEW_ALL_LECTURERS
   ]
 };
 

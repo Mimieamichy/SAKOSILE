@@ -23,7 +23,9 @@ export interface IScoreEntry {
  * Holds criteria definitions and panel scoring entries.
  */
 export interface IScoreSheet extends Document {
-  department: { type: string; required: true; unique: true };
+  faculty: { type: string; required: true; unique: true };
+  level: 'msc' | 'phd';
+  stage: string;
 
   criteria: {
     _id: mongoose.Types.ObjectId; 
@@ -31,6 +33,7 @@ export interface IScoreSheet extends Document {
     weight: number;
   }[];
   entries: IScoreEntry[];
+  isActive: { type: Boolean, default: true },
 }
 
 // riteria sub-schema with auto _id enabled
@@ -71,7 +74,13 @@ const scoreEntrySchema = new Schema<IScoreEntry>(
 
 const scoreSheetSchema = new Schema<IScoreSheet>(
   {
-    department: { type: String, required: true, unique: true },
+    faculty: { type: String, required: true, unique: true },
+    level: {
+      type: String,
+      enum: ['msc', 'phd'],
+      required: true,
+    },
+    stage: { type: String, required: true },
     criteria: {
       type: [criterionSchema],
       validate: [
@@ -87,6 +96,7 @@ const scoreSheetSchema = new Schema<IScoreSheet>(
       ],
     },
     entries: [scoreEntrySchema], // initially empty
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

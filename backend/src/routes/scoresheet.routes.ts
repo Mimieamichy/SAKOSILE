@@ -7,10 +7,11 @@ import { Permission } from '../utils/permissions';
 
 const router = Router();
 
-router.post('/dept-score-sheet', authenticate, checkPermission(Permission.GENERATE_DEPT_SCORE_SHEET), ScoreSheetController.createDeptScoreSheet);
-router.get('/dept-score-sheet/:department', authenticate, checkPermission(Permission.GENERATE_DEPT_SCORE_SHEET), ScoreSheetController.getDeptScoreSheet);
-router.put('/dept-score-sheet/:criterionId', authenticate, checkPermission(Permission.GENERATE_DEPT_SCORE_SHEET), ScoreSheetController.UpdateCriterionDeptScoreSheet);
-router.delete('/dept-score-sheet/:criterionId', authenticate, checkPermission(Permission.GENERATE_DEPT_SCORE_SHEET), ScoreSheetController.deleteCriterionDeptScoreSheet);
+router.post('/faculty-score-sheet', authenticate, checkPermission(Permission.GENERATE_FACULTY_SCORE_SHEET), ScoreSheetController.createFacultyScoreSheet);
+router.get('/faculty-score-sheet', authenticate, checkPermission(Permission.GENERATE_FACULTY_SCORE_SHEET), ScoreSheetController.getAllFacultyScoreSheets);
+router.get('/faculty-score-sheet/:faculty', authenticate, checkPermission(Permission.GENERATE_FACULTY_SCORE_SHEET), ScoreSheetController.getSingleFacultyScoreSheet);
+router.put('/faculty-score-sheet/:criterionId', authenticate, checkPermission(Permission.GENERATE_FACULTY_SCORE_SHEET), ScoreSheetController.UpdateCriterionFacultyScoreSheet);
+router.delete('/dept-score-sheet/:criterionId', authenticate, checkPermission(Permission.GENERATE_FACULTY_SCORE_SHEET), ScoreSheetController.deleteCriterionDeptScoreSheet);
 router.post('/score-sheet', authenticate, checkPermission(Permission.GENERATE_GENERAL_SCORE_SHEET), ScoreSheetController.createGeneralScoreSheet);
 router.get('/score-sheet', authenticate, checkPermission(Permission.GENERATE_GENERAL_SCORE_SHEET), ScoreSheetController.getGenScoreSheet);
 router.put('/score-sheet/:criterionId', authenticate, checkPermission(Permission.GENERATE_GENERAL_SCORE_SHEET), ScoreSheetController.updateGenCriterion);
