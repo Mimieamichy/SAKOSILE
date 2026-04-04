@@ -3,8 +3,13 @@ import mongoose from 'mongoose';
 
 
 export default class ScoreSheetService {
-  static async createFacultyScoreSheet(criteria: { name: string; weight: number }[], level: 'msc' | 'phd', stage: string, userId: string) {
-    const totalWeight = criteria.reduce((sum, c) => sum + c.weight, 0);
+  static async createFacultyScoreSheet(criteria: { title: string; percentage: number }[], level: 'msc' | 'phd', stage: string, userId: string) {
+    const formattedCriteria = criteria.map(c => ({
+      name: c.title,
+      weight: c.percentage
+    }));
+
+    const totalWeight = formattedCriteria.reduce((sum, c) => sum + c.weight, 0);
     if (Math.round(totalWeight) !== 100) {
       throw new Error('Criteria weights must add up to 100');
     }
@@ -30,7 +35,7 @@ export default class ScoreSheetService {
       faculty: lecturer.faculty,
       level,
       stage,
-      criteria,
+      criteria: formattedCriteria,
       entries: [],
       isActive: true,
     });
