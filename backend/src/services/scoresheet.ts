@@ -14,7 +14,8 @@ export default class ScoreSheetService {
       throw new Error('Criteria weights must add up to 100');
     }
 
-    const lecturer = await Lecturer.findById(userId);
+    const lecturer = await Lecturer.findOne({user: userId});
+    console.log(userId, lecturer)
     if (!lecturer || !lecturer.faculty) {
       throw new Error('Lecturer not found or faculty not assigned');
     }
