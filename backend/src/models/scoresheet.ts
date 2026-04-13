@@ -23,7 +23,7 @@ export interface IScoreEntry {
  * Holds criteria definitions and panel scoring entries.
  */
 export interface IScoreSheet extends Document {
-  faculty: { type: string; required: true; unique: true };
+  faculty: { type: string; required: true };
   level: 'msc' | 'phd';
   stage: string;
 
@@ -74,7 +74,7 @@ const scoreEntrySchema = new Schema<IScoreEntry>(
 
 const scoreSheetSchema = new Schema<IScoreSheet>(
   {
-    faculty: { type: String, required: true, unique: true },
+    faculty: { type: String, required: true},
     level: {
       type: String,
       enum: ['msc', 'phd'],
@@ -99,6 +99,14 @@ const scoreSheetSchema = new Schema<IScoreSheet>(
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
+);
+
+scoreSheetSchema.index(
+  { faculty: 1, level: 1, stage: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isActive: true }
+  }
 );
 
 export default mongoose.model<IScoreSheet>('ScoreSheet', scoreSheetSchema);

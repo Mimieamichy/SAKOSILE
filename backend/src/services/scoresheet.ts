@@ -21,15 +21,15 @@ export default class ScoreSheetService {
     }
 
     // deactivate current active one (if exists)
-    await ScoreSheet.updateMany(
-      {
-        faculty: lecturer.faculty,
-        level,
-        stage,
-        isActive: true,
-      },
-      { isActive: false }
-    );
+    await ScoreSheet.findOneAndUpdate(
+    {
+      faculty: lecturer.faculty,
+      level,
+      stage,
+      isActive: true,
+    },
+    { isActive: false }
+  );
 
     // create new active one
     const scoreSheet = await ScoreSheet.create({
