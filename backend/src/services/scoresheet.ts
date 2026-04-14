@@ -55,12 +55,21 @@ export default class ScoreSheetService {
   }
 
   static async getAllFacultyScoreSheets(faculty: string, level?: 'msc' | 'phd', stage?: string) {
-    return await ScoreSheet.find({
+    const query: any = {
       faculty,
       ...(level && { level }),
       ...(stage && { stage }),
-    }).sort({ createdAt: -1 }); // latest first
+    };
+
+    const scoreSheets = await ScoreSheet.find(query).sort({ createdAt: -1 });
+    const total = await ScoreSheet.countDocuments(query);
+
+    return {
+      total,
+      scoreSheets,
+    };
   }
+
 
   static async UpdateCriterionFacultyScoreSheet(
     userId: string,

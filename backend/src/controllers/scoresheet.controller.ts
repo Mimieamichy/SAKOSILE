@@ -3,6 +3,7 @@ import ScoreSheetService from '../services/scoresheet';
 import ActivityLogService from '../services/activity_log'
 import UserService from '../services/user';
 import LecturerService from '../services/lecturer';
+import { Console } from 'console';
 
 
 
@@ -45,6 +46,10 @@ export default class ScoreSheetController {
       const {faculty} = req.params
       const { level, stage } = req.query;
 
+      console.log('Params:', req.params);
+      console.log('Query:', req.query);
+      console.log('Body:', req.body);
+
       if (!faculty || typeof stage !== 'string' || !level) {
         throw new Error('faculty, level and stage are required in the right format');
       }
@@ -61,9 +66,14 @@ export default class ScoreSheetController {
    static async getAllFacultyScoreSheets(req: AuthenticatedRequest, res: Response) {
     try {
       const {faculty} = req.params
-      const { level, stage } = req.body;
-      const scoreSheets = await ScoreSheetService.getAllFacultyScoreSheets(faculty, level, stage);
-      res.json({ success: true, data: scoreSheets });
+      const { level, stage } = req.query;
+
+      if (!faculty || typeof stage !== 'string' || !level) {
+        throw new Error('faculty, level and stage are required in the right format');
+      }
+      
+      const {scoreSheets, total} = await ScoreSheetService.getAllFacultyScoreSheets(faculty, level as 'msc' | 'phd', stage);
+      res.json({ success: true, data: scoreSheets, total });
     } catch (err: any) {
       console.log(err)
       res.status(400).json({success: false, error: 'Failed to get Faculty score sheet history', message: err.message});
