@@ -43,6 +43,7 @@ import PGAdminDashboardShell from "./pages/pg_admin/PGAdminDashboardShell";
 import PGAdminDashboard from "./pages/pg_admin/PGAdminDashboard";
 import PGAdminChecklist from "./pages/pg_admin/PGAdminChecklist";
 import PGAdminNotifications from "./pages/pg_admin/PGAdminNotifications";
+import PGAdminSettings from "./pages/pg_admin/PGAdminSettings";
 
 const queryClient = new QueryClient();
 
@@ -92,8 +93,9 @@ const App = () => (
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<PGAdminDashboard />} />
             <Route path="checklist" element={<PGAdminChecklist />} />
-            <Route path="readiness" element={<PGAdminChecklist />} />
+            <Route path="student-readiness" element={<PGAdminChecklist />} />
             <Route path="notifications" element={<PGAdminNotifications />} />
+            <Route path="settings" element={<PGAdminSettings />} />
           </Route>
           
           <Route 

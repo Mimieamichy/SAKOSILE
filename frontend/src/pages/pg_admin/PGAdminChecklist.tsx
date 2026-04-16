@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -14,7 +15,16 @@ import { Label } from "@/components/ui/label";
 import { Search, Filter, ClipboardList, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
+import { useChecklistStore } from "@/lib/checklistStore";
 import waterMark from "../fulafia logo.png";
+
+interface Supervisor {
+  _id: string;
+  user: {
+    firstName: string;
+    lastName: string;
+  };
+}
 
 interface StudentFromAPI {
   _id: string;
@@ -26,6 +36,9 @@ interface StudentFromAPI {
   projectTopic: string;
   stageScores: Record<string, number>;
   user?: { firstName: string; lastName: string };
+  majorSupervisor?: string;
+  minorSupervisor?: string;
+  internalExaminer?: string;
 }
 
 interface Faculty {
@@ -96,7 +109,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function PGAdminChecklist() {
   const location = useLocation();
-  const isReadiness = location.pathname.includes("readiness");
+  const isReadiness = location.pathname.includes("student-readiness");
+  const CHECKLIST_CONTENT = useChecklistStore((s) => s.content);
 
   const { token } = useAuthStore();
   const { toast } = useToast();
@@ -140,6 +154,8 @@ export default function PGAdminChecklist() {
   const [totalStudents, setTotalStudents] = useState(0);
 
   const [selectedStudentForReadiness, setSelectedStudentForReadiness] = useState<StudentFromAPI | null>(null);
+  const [selectedStudentForChecklist, setSelectedStudentForChecklist] = useState<StudentFromAPI | null>(null);
+  const [checklistValues, setChecklistValues] = useState<Record<number, { ticked: boolean; remarks: string }>>({});
 
   const selectedDefenseLabel = useMemo(() => {
     if (selectedDefense === "all") return "All Stages";
@@ -371,7 +387,7 @@ export default function PGAdminChecklist() {
           </div>
 
           <h2 className="mt-4 text-2xl font-bold text-gray-900">
-            {degreeTab} Students Ready for {selectedDefenseLabel}
+            {isReadiness ? "Student Readiness" : `${degreeTab} Students Ready for ${selectedDefenseLabel}`}
           </h2>
         </div>
       </div>
@@ -596,20 +612,24 @@ export default function PGAdminChecklist() {
                     )}
                     <td className="p-4 border-t">{s.department}</td>
                     <td className="p-4 border-t text-right">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="text-amber-700 border-amber-700 hover:bg-amber-50"
-                        onClick={() => {
-                          if (isReadiness) {
-                            setSelectedStudentForReadiness(s);
-                          } else {
-                            // TODO: Implement View Checklist
-                          }
-                        }}
-                      >
-                        {isReadiness ? "Fill Readiness Form" : "View Checklist"}
-                      </Button>
+                      {!(s.level === 'msc' && getStageKey(s.currentStage) === 'proposal' && !isReadiness) && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-amber-700 border-amber-700 hover:bg-amber-50"
+                          onClick={() => {
+                            if (isReadiness) {
+                              setSelectedStudentForReadiness(s);
+                            } else {
+                              console.log("Student Info:", s);
+                              setChecklistValues({});
+                              setSelectedStudentForChecklist(s);
+                            }
+                          }}
+                        >
+                          {isReadiness ? "Fill Readiness Form" : "View Checklist"}
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -681,6 +701,33 @@ export default function PGAdminChecklist() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">First Supervisor</Label>
+                  <Input 
+                    disabled 
+                    value={selectedStudentForReadiness.majorSupervisor || "—"} 
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Second Supervisor</Label>
+                  <Input 
+                    disabled 
+                    value={selectedStudentForReadiness.minorSupervisor || "—"} 
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-sm font-medium text-gray-700">Internal Supervisor</Label>
+                  <Input 
+                    disabled 
+                    value={selectedStudentForReadiness.internalExaminer || "—"} 
+                    className="bg-gray-50"
+                  />
+                </div>
+              </div>
+
               <div>
                 <Label className="text-sm font-medium text-gray-700">Title of Thesis/Dissertation</Label>
                 <Textarea disabled value={selectedStudentForReadiness.projectTopic} className="bg-gray-50" />
@@ -729,6 +776,157 @@ export default function PGAdminChecklist() {
                 setSelectedStudentForReadiness(null);
               }}>
                 Save Form
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Checklist Modal */}
+      {selectedStudentForChecklist && (
+        <Dialog open={!!selectedStudentForChecklist} onOpenChange={() => setSelectedStudentForChecklist(null)}>
+          <DialogContent className="max-w-2xl bg-white max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-amber-800">
+                Student Progress Checklist
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                <div>
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">Student Name</Label>
+                  <p className="font-medium text-gray-900 capitalize">
+                    {selectedStudentForChecklist.user ? `${selectedStudentForChecklist.user.firstName} ${selectedStudentForChecklist.user.lastName}` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">Matric Number</Label>
+                  <p className="font-medium text-gray-900">{selectedStudentForChecklist.matricNo}</p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">Programme</Label>
+                  <p className="font-medium text-gray-900 uppercase">{selectedStudentForChecklist.level}</p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">Current Stage</Label>
+                  <p className="font-medium text-amber-700">
+                    {getLabelFromKey(selectedStudentForChecklist.currentStage, defenseOptions)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
+                <div className="col-span-2 border-b pb-2 mb-2">
+                  <h4 className="text-xs font-bold text-gray-700 uppercase">Supervisor Information</h4>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">First Supervisor</Label>
+                  <p className="font-medium text-gray-900 capitalize">
+                    {selectedStudentForChecklist.majorSupervisor || "—"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">Second Supervisor</Label>
+                  <p className="font-medium text-gray-900 capitalize">
+                    {selectedStudentForChecklist.minorSupervisor || "—"}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs font-semibold text-gray-500 uppercase">Internal Supervisor</Label>
+                  <p className="font-medium text-gray-900 capitalize">
+                    {selectedStudentForChecklist.internalExaminer || "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="text-center mb-6">
+                  <h3 className="text-lg font-bold text-gray-900 uppercase underline">
+                    {selectedStudentForChecklist.level === 'phd' 
+                      ? 'SUBMISSION OF Ph.D SEMINAR' 
+                      : `SUBMISSION OF ${selectedStudentForChecklist.level.toUpperCase()} SEMINAR`}
+                  </h3>
+                  <p className="text-sm text-gray-600 font-semibold mt-1">
+                    ({getLabelFromKey(selectedStudentForChecklist.currentStage, defenseOptions)})
+                  </p>
+                  <h4 className="text-md font-bold mt-4 underline">CHECKLIST</h4>
+                </div>
+
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-gray-100 border-b">
+                      <tr>
+                        <th className="p-3 border-r font-bold w-12 text-center">S/No</th>
+                        <th className="p-3 border-r font-bold">Description</th>
+                        <th className="p-3 border-r font-bold w-16 text-center">Tick</th>
+                        <th className="p-3 border-r font-bold">Remarks</th>
+                        <th className="p-3 font-bold w-24 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(CHECKLIST_CONTENT[selectedStudentForChecklist.level]?.[selectedStudentForChecklist.currentStage] || []).map((item, idx) => {
+                        const val = checklistValues[idx] || { ticked: false, remarks: "" };
+                        return (
+                          <tr key={idx} className="border-b last:border-0">
+                            <td className="p-3 border-r text-center">{idx + 1}</td>
+                            <td className="p-3 border-r">{item}</td>
+                            <td className="p-3 border-r text-center">
+                              <Checkbox 
+                                checked={val.ticked} 
+                                onCheckedChange={(checked) => 
+                                  setChecklistValues(prev => ({
+                                    ...prev,
+                                    [idx]: { ...prev[idx], ticked: checked === true }
+                                  }))
+                                }
+                              />
+                            </td>
+                            <td className="p-3 border-r">
+                              <Input 
+                                placeholder="Add remarks..." 
+                                className="h-8 text-xs" 
+                                value={val.remarks}
+                                onChange={(e) => 
+                                  setChecklistValues(prev => ({
+                                    ...prev,
+                                    [idx]: { ...(prev[idx] || { ticked: false }), remarks: e.target.value }
+                                  }))
+                                }
+                              />
+                            </td>
+                            <td className="p-3 text-center">
+                              <Button 
+                                size="sm" 
+                                className="bg-amber-700 hover:bg-amber-800 text-white h-8 text-xs"
+                                onClick={() => {
+                                  toast({
+                                    title: "Checklist Item Updated",
+                                    description: `Item ${idx + 1} has been submitted.`,
+                                  });
+                                  // TODO: Add API call here to save this specific item
+                                }}
+                              >
+                                Submit
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {(!CHECKLIST_CONTENT[selectedStudentForChecklist.level]?.[selectedStudentForChecklist.currentStage] || CHECKLIST_CONTENT[selectedStudentForChecklist.level]?.[selectedStudentForChecklist.currentStage].length === 0) && (
+                        <tr>
+                          <td colSpan={5} className="p-4 text-center text-gray-500">No checklist items for this stage.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button className="bg-amber-700 hover:bg-amber-800 text-white" onClick={() => setSelectedStudentForChecklist(null)}>
+                Close Checklist
               </Button>
             </DialogFooter>
           </DialogContent>
