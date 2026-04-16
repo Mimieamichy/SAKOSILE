@@ -50,6 +50,7 @@ export default function PGAdminDashboardShell() {
   const navItems = [
     { label: "Dashboard", path: "/pg_admin/dashboard", show: true },
     { label: "Student Checklist", path: "/pg_admin/checklist", show: true },
+    { label: "Student Readiness", path: "/pg_admin/readiness", show: true },
     { label: "Notifications", path: "/pg_admin/notifications", show: true },
   ];
 

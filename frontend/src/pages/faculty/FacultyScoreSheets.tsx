@@ -41,6 +41,8 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
   const { toast } = useToast();
   
   const STORAGE_KEY = "faculty-score-sheets";
+  const baseUrl = import.meta.env.VITE_BACKEND_URL;
+  const { token } = useAuthStore();
   // Requirement 6: Role Integration
   const isFacultyRep = hasRole(Role.FACULTY_PG_REP);
 
@@ -60,6 +62,8 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
 
   const [activeStage, setActiveStage] = useState<string>(mscStages[0]);
   const [showHistory, setShowHistory] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingRemote, setLoadingRemote] = useState(false);
 
   // Initial static data for demonstration
   const initialData: ScoreSheetData[] = [
@@ -132,6 +136,69 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
     }
   }, [scoreSheets]);
 
+  // Load existing criteria from backend and merge into sheets
+  useEffect(() => {
+    const load = async () => {
+      setLoadingRemote(true);
+      try {
+        const facultyParam = user?.faculty ? `/${encodeURIComponent(user.faculty)}` : '';
+        const queryParams = new URLSearchParams();
+        if (activeLevel) queryParams.append('level', activeLevel.toLowerCase());
+        if (activeStage) queryParams.append('stage', activeStage.toLowerCase());
+        
+        const queryString = queryParams.toString();
+        const url = `${baseUrl}/defence/faculty-score-sheet${facultyParam}${queryString ? `?${queryString}` : ''}`;
+        const res = await fetch(url, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        console.log("GET defence/faculty-score-sheet:", json);
+        const arr: any[] = Array.isArray(json) ? json : Array.isArray(json?.data) ? json.data : [];
+        const grouped: Record<string, Criterion[]> = {};
+        for (const item of arr) {
+          const lvl = String(item.level ?? "").toUpperCase() === "PHD" ? "PhD" : "MSc";
+          const stg = String(item.stage ?? "");
+          const key = `${lvl}__${stg}`;
+          const crit: Criterion = {
+            id: item._id ?? item.id,
+            title: String(item.title ?? ""),
+            percentage: Number(item.percentage ?? 0),
+          };
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(crit);
+        }
+        setScoreSheets((prev) => {
+          const byKey = new Map<string, ScoreSheetData>();
+          for (const s of prev) byKey.set(`${s.level}__${s.stage}`, s);
+          for (const [k, crits] of Object.entries(grouped)) {
+            const [lvl, stg] = k.split("__");
+            const existing = byKey.get(k);
+            const sheet: ScoreSheetData =
+              existing
+                ? { ...existing, criteria: crits, status: "Published", lastModified: new Date().toLocaleString() }
+                : {
+                    level: lvl as AcademicLevel,
+                    stage: stg,
+                    criteria: crits,
+                    status: "Published",
+                    lastModified: new Date().toLocaleString(),
+                    history: [],
+                  };
+            byKey.set(k, sheet);
+          }
+          return Array.from(byKey.values());
+        });
+      } finally {
+        setLoadingRemote(false);
+      }
+    };
+    load();
+  }, [baseUrl, token]);
+
   // Find the active score sheet or create a default one
   const currentSheet = useMemo(() => {
     return scoreSheets.find(s => s.level === activeLevel && s.stage === activeStage) || {
@@ -147,13 +214,44 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
     };
   }, [scoreSheets, activeLevel, activeStage]);
 
-  // Filter history to show previous sheets created by the current faculty officer
-  const historyToShow = useMemo(() => {
+  // Filter history to show previous sheets created by the current faculty officer (exclude most recent)
+  const previousHistory = useMemo(() => {
     const uname = user?.userName?.trim();
-    if (!uname) return currentSheet.history;
-    const mine = currentSheet.history.filter(h => h.userName === uname);
-    return mine.length ? mine : currentSheet.history;
+    const mine = uname ? currentSheet.history.filter(h => h.userName === uname) : [];
+    if (mine.length <= 1) return [];
+    return mine.slice(1);
   }, [currentSheet.history, user?.userName]);
+
+  const [loadVersionKey, setLoadVersionKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<"publish" | "history">("publish");
+  
+  const handleLoadVersion = (version: ScoreSheetVersion) => {
+    setScoreSheets(prev => {
+      const idx = prev.findIndex(s => s.level === activeLevel && s.stage === activeStage);
+      const updated: ScoreSheetData = {
+        level: activeLevel,
+        stage: activeStage,
+        criteria: version.criteria,
+        status: "Draft",
+        lastModified: new Date().toLocaleString(),
+        history: idx > -1 ? prev[idx].history : [],
+      };
+      if (idx > -1) {
+        const copy = [...prev];
+        copy[idx] = updated;
+        return copy;
+      }
+      return [...prev, updated];
+    });
+    
+    // Force a refresh of the ScoreSheetGenerator component by updating the key
+    setLoadVersionKey(prev => prev + 1);
+    
+    toast({
+      title: "Version loaded",
+      description: "You can make updates and publish.",
+    });
+  };
 
   // Requirement 2: Access Control visual indicators
   if (!isFacultyRep) {
@@ -168,39 +266,111 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
     );
   }
 
-  const handlePublish = (payload: { criteria: Criterion[] }) => {
-    // Requirement 3: Data Validation (already handled by ScoreSheetGenerator, but we add more context)
+  const handlePublish = async (payload: { criteria: Criterion[] }) => {
     const newVersion: ScoreSheetVersion = {
       id: `v${Date.now()}`,
       timestamp: new Date().toLocaleString(),
       userName: user?.userName || "Faculty Rep",
       criteria: payload.criteria,
     };
-
-    setScoreSheets(prev => {
-      const existingIdx = prev.findIndex(s => s.level === activeLevel && s.stage === activeStage);
-      const updatedSheet: ScoreSheetData = {
-        level: activeLevel,
-        stage: activeStage,
-        criteria: payload.criteria,
-        status: "Published",
-        lastModified: newVersion.timestamp,
-        history: existingIdx > -1 ? [newVersion, ...prev[existingIdx].history] : [newVersion],
+    setSaving(true);
+    try {
+      const postUrl = `${baseUrl}/defence/faculty-score-sheet`;
+      const postBody = {
+        level: String(activeLevel).toLowerCase(),
+        stage: String(activeStage).toLowerCase(),
+        criteria: payload.criteria.map(c => ({
+          title: c.title,
+          percentage: c.percentage,
+        })),
       };
-
-      if (existingIdx > -1) {
-        const newSheets = [...prev];
-        newSheets[existingIdx] = updatedSheet;
-        return newSheets;
+      console.log("POST defence/faculty-score-sheet →", postUrl, postBody);
+      const r = await fetch(postUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(postBody),
+      });
+      console.log("POST defence/faculty-score-sheet:", r.status);
+      try {
+        const p = await r.clone().json();
+        console.log("POST defence/faculty-score-sheet payload:", p);
+      } catch {
+        const t = await r.text();
+        console.log("POST defence/faculty-score-sheet text:", t);
       }
-      return [...prev, updatedSheet];
-    });
+      if (!r.ok) {
+        const msg = await r.text().catch(() => "");
+        throw new Error(`Create failed: ${r.status} ${msg}`);
+      }
+      setScoreSheets(prev => {
+        const idx = prev.findIndex(s => s.level === activeLevel && s.stage === activeStage);
+        const updated: ScoreSheetData = {
+          level: activeLevel,
+          stage: activeStage,
+          criteria: payload.criteria,
+          status: "Published",
+          lastModified: newVersion.timestamp,
+          history: idx > -1 ? [newVersion, ...prev[idx].history] : [newVersion],
+        };
+        if (idx > -1) {
+          const copy = [...prev];
+          copy[idx] = updated;
+          return copy;
+        }
+        return [...prev, updated];
+      });
+      toast({
+        title: "Score Sheet Published",
+        description: `Successfully updated ${activeLevel} - ${activeStage} score sheet.`,
+        className: "bg-green-50 border-green-200",
+      });
+    } catch {
+      toast({
+        title: "Failed",
+        description: "Could not save score sheet.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    toast({
-      title: "Score Sheet Published",
-      description: `Successfully updated ${activeLevel} - ${activeStage} score sheet.`,
-      className: "bg-green-50 border-green-200",
-    });
+  const handleDeleteCriterion = async (criterionId: string) => {
+    try {
+      const deleteUrl = `${baseUrl}/defence/faculty-score-sheet/${encodeURIComponent(criterionId)}`;
+      console.log("DELETE defence/faculty-score-sheet →", deleteUrl);
+      const r = await fetch(`${baseUrl}/defence/faculty-score-sheet/${encodeURIComponent(criterionId)}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      console.log("DELETE defence/faculty-score-sheet:", r.status);
+      try {
+        const p = await r.clone().json();
+        console.log("DELETE defence/faculty-score-sheet payload:", p);
+      } catch {
+        const t = await r.text();
+        console.log("DELETE defence/faculty-score-sheet text:", t);
+      }
+      setScoreSheets(prev =>
+        prev.map(s =>
+          s.level === activeLevel && s.stage === activeStage
+            ? { ...s, criteria: s.criteria.filter(c => c.id !== criterionId) }
+            : s
+        )
+      );
+      toast({ title: "Removed", description: "Criterion deleted." });
+    } catch {
+      toast({
+        title: "Delete failed",
+        description: "Unable to delete criterion.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -231,22 +401,34 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
             <p className="text-gray-500">Create and manage evaluation rubrics for MSc and PhD students.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-            variant="outline" 
-            onClick={() => setShowHistory(!showHistory)}
-            className={showHistory ? "bg-amber-50 border-amber-700 text-amber-800" : "hover:text-amber-700 hover:border-amber-700"}
-          >
-              <History className="w-4 h-4 mr-2" />
-              {showHistory ? "Hide History" : "View History"}
-            </Button>
-            <Badge 
-              variant={currentSheet.status === "Published" ? "outline" : "secondary"} 
-              className={currentSheet.status === "Published" ? "bg-green-50 text-green-700 border-green-200" : ""}
-            >
-              {currentSheet.status === "Published" ? <CheckCircle2 className="w-3 h-3 mr-1 inline" /> : null}
-              {currentSheet.status}
-            </Badge>
+            {/* Status badge removed as requested */}
           </div>
+        </div>
+      </div>
+
+      {/* Tabs Navigation */}
+      <div className="border-b">
+        <div className="flex space-x-8">
+          <button
+            onClick={() => setActiveTab("publish")}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "publish"
+                ? "border-amber-500 text-amber-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            Publish Score Sheet
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "history"
+                ? "border-amber-500 text-amber-600"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            History
+          </button>
         </div>
       </div>
 
@@ -306,9 +488,9 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[300px]">
-                  {historyToShow.length > 0 ? (
+                  {previousHistory.length > 0 ? (
                     <div className="divide-y divide-gray-100">
-                      {historyToShow.map((v) => (
+                      {previousHistory.map((v) => (
                         <div key={v.id} className="p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex justify-between items-start mb-1">
                             <span className="text-xs font-semibold text-gray-500">{v.timestamp}</span>
@@ -316,12 +498,22 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
                           </div>
                           <p className="text-sm font-medium text-gray-700">Modified by {v.userName}</p>
                           <p className="text-xs text-gray-500 mt-1">{v.criteria.length} criteria defined</p>
+                          <div className="mt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-amber-700 text-amber-800 hover:bg-amber-50"
+                              onClick={() => handleLoadVersion(v)}
+                            >
+                              Load Version
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="p-8 text-center text-gray-400 italic text-sm">
-                      No version history found.
+                      No previous versions found.
                     </div>
                   )}
                 </ScrollArea>
@@ -330,48 +522,137 @@ export default function FacultyScoreSheets({ onBack }: FacultyScoreSheetsProps) 
           )}
         </div>
 
-        {/* Editor Section */}
+        {/* Main Content Area */}
         <div className="lg:col-span-3 min-w-0">
-          <Card className="border-t-4 border-t-amber-700 shadow-md overflow-hidden">
-            <CardHeader className="px-4 sm:px-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-2xl text-gray-900">
-                    {activeLevel} - {activeStage} Rubric
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    Last modified: {currentSheet.lastModified}
-                  </CardDescription>
-                </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                  activeLevel === "PhD" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                }`}>
-                  {activeLevel} Level
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                <div className="flex items-start gap-4 text-amber-800">
-                  <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-semibold">Guidelines for {activeStage}</p>
-                    <p className="mt-1 opacity-90">
-                      Ensure that all scoring criteria are comprehensive and align with the university's PG handbook. 
-                      The total percentage must equal exactly 100%. Changes are tracked for audit purposes.
-                    </p>
+          {activeTab === "publish" ? (
+            <Card className="border-t-4 border-t-amber-700 shadow-md overflow-hidden">
+              <CardHeader className="px-4 sm:px-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-2xl text-gray-900">
+                      {activeLevel} - {activeStage} Rubric
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      Last modified: {currentSheet.lastModified}
+                    </CardDescription>
+                  </div>
+                  <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                    activeLevel === "PhD" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                  }`}>
+                    {activeLevel} Level
                   </div>
                 </div>
-              </div>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                  <div className="flex items-start gap-4 text-amber-800">
+                    <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-semibold">Guidelines for {activeStage}</p>
+                      <p className="mt-1 opacity-90">
+                        Ensure that all scoring criteria are comprehensive and align with the university's PG handbook. 
+                        The total percentage must equal exactly 100%. Changes are tracked for audit purposes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-              <ScoreSheetGenerator 
-                key={`${activeLevel}-${activeStage}`} // Force re-render when level/stage changes
-                initialCriteria={currentSheet.criteria}
-                onPublish={handlePublish}
-                saving={false}
-              />
-            </CardContent>
-          </Card>
+                <ScoreSheetGenerator 
+                  key={`${activeLevel}-${activeStage}-${loadVersionKey}`}
+                  initialCriteria={currentSheet.criteria}
+                  rubricId={`${activeLevel}-${activeStage}`}
+                  onDeleteCriterion={handleDeleteCriterion}
+                  onPublish={handlePublish}
+                  saving={saving || loadingRemote}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-t-4 border-t-amber-700 shadow-md overflow-hidden">
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-2xl text-gray-900">
+                  Score Sheet History
+                </CardTitle>
+                <CardDescription>
+                  All score sheets created, sorted from newest to oldest
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Level</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Stage</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Last Modified</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Criteria Count</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scoreSheets
+                        .sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime())
+                        .map((sheet, index) => (
+                          <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4">{sheet.level}</td>
+                            <td className="py-3 px-4">{sheet.stage}</td>
+                            <td className="py-3 px-4">
+                              <Badge 
+                                variant={sheet.status === "Published" ? "outline" : "secondary"}
+                                className={sheet.status === "Published" ? "bg-green-50 text-green-700 border-green-200" : ""}
+                              >
+                                {sheet.status}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600">{sheet.lastModified}</td>
+                            <td className="py-3 px-4">{sheet.criteria.length}</td>
+                            <td className="py-3 px-4">
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-amber-700 text-amber-800 hover:bg-amber-50"
+                                  onClick={() => {
+                                    setActiveLevel(sheet.level);
+                                    setActiveStage(sheet.stage);
+                                    setActiveTab("publish");
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-700 text-red-800 hover:bg-red-50"
+                                  onClick={() => {
+                                    // Handle delete logic here
+                                    setScoreSheets(prev => prev.filter(s => 
+                                      !(s.level === sheet.level && s.stage === sheet.stage)
+                                    ));
+                                    toast({
+                                      title: "Score Sheet Deleted",
+                                      description: `${sheet.level} - ${sheet.stage} score sheet has been removed`,
+                                    });
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                  {scoreSheets.length === 0 && (
+                    <div className="text-center py-8 text-gray-400 italic">
+                      No score sheets found. Create your first score sheet in the Publish tab.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

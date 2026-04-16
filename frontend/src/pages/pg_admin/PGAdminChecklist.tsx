@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,19 @@ function useDebouncedValue<T>(value: T, delay: number): T {
   return debounced;
 }
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+
 export default function PGAdminChecklist() {
+  const location = useLocation();
+  const isReadiness = location.pathname.includes("readiness");
+
   const { token } = useAuthStore();
   const { toast } = useToast();
   const noSessionWarnedRef = useRef(false);
@@ -125,6 +138,8 @@ export default function PGAdminChecklist() {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalStudents, setTotalStudents] = useState(0);
+
+  const [selectedStudentForReadiness, setSelectedStudentForReadiness] = useState<StudentFromAPI | null>(null);
 
   const selectedDefenseLabel = useMemo(() => {
     if (selectedDefense === "all") return "All Stages";
@@ -536,6 +551,7 @@ export default function PGAdminChecklist() {
                 <th className="p-4 text-sm font-medium text-gray-600">Full Name</th>
                 <th className="p-4 text-sm font-medium text-gray-600">Project Topic</th>
                 <th className="p-4 text-sm font-medium text-gray-600">Current Stage</th>
+                {isReadiness && <th className="p-4 text-sm font-medium text-gray-600">Readiness Status</th>}
                 <th className="p-4 text-sm font-medium text-gray-600">Department</th>
                 <th className="p-4 text-sm font-medium text-gray-600 text-right">Action</th>
               </tr>
@@ -571,6 +587,13 @@ export default function PGAdminChecklist() {
                         {getLabelFromKey(s.currentStage, defenseOptions)}
                       </span>
                     </td>
+                    {isReadiness && (
+                      <td className="p-4 border-t">
+                        <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">
+                          Pending Form
+                        </span>
+                      </td>
+                    )}
                     <td className="p-4 border-t">{s.department}</td>
                     <td className="p-4 border-t text-right">
                       <Button 
@@ -578,10 +601,14 @@ export default function PGAdminChecklist() {
                         variant="outline" 
                         className="text-amber-700 border-amber-700 hover:bg-amber-50"
                         onClick={() => {
-                          // TODO: Implement View Checklist
+                          if (isReadiness) {
+                            setSelectedStudentForReadiness(s);
+                          } else {
+                            // TODO: Implement View Checklist
+                          }
                         }}
                       >
-                        View Checklist
+                        {isReadiness ? "Fill Readiness Form" : "View Checklist"}
                       </Button>
                     </td>
                   </tr>
@@ -619,6 +646,94 @@ export default function PGAdminChecklist() {
           </div>
         )}
       </div>
+
+      {/* Readiness Form Modal */}
+      {selectedStudentForReadiness && (
+        <Dialog open={!!selectedStudentForReadiness} onOpenChange={() => setSelectedStudentForReadiness(null)}>
+          <DialogContent className="max-w-2xl bg-white max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-amber-800">
+                {selectedStudentForReadiness.level === "phd" ? "Ph.D Seminar Readiness Form" : "PG Oral Internal Defence Readiness Form"}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Name</Label>
+                  <Input 
+                    disabled 
+                    value={selectedStudentForReadiness.user ? `${selectedStudentForReadiness.user.firstName} ${selectedStudentForReadiness.user.lastName}` : ""} 
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Matric Number</Label>
+                  <Input disabled value={selectedStudentForReadiness.matricNo} className="bg-gray-50" />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Programme of Study</Label>
+                  <Input disabled value={selectedStudentForReadiness.level.toUpperCase()} className="bg-gray-50" />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Department</Label>
+                  <Input disabled value={selectedStudentForReadiness.department} className="bg-gray-50" />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Title of Thesis/Dissertation</Label>
+                <Textarea disabled value={selectedStudentForReadiness.projectTopic} className="bg-gray-50" />
+              </div>
+
+              {selectedStudentForReadiness.level === "phd" && (
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Seminar Type</Label>
+                  <Select defaultValue={selectedStudentForReadiness.currentStage}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Seminar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="proposal_defense">Proposal Defense</SelectItem>
+                      <SelectItem value="second_seminar">2nd Seminar</SelectItem>
+                      <SelectItem value="third_seminar">3rd Seminar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Proposed Date</Label>
+                  <Input type="date" />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Time</Label>
+                  <Input type="time" />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Venue</Label>
+                <Input placeholder="Enter proposed venue" />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedStudentForReadiness(null)}>Cancel</Button>
+              <Button className="bg-amber-700 hover:bg-amber-800 text-white" onClick={() => {
+                toast({
+                  title: "Readiness Form Saved",
+                  description: "The readiness form has been updated successfully.",
+                });
+                setSelectedStudentForReadiness(null);
+              }}>
+                Save Form
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

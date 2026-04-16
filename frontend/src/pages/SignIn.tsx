@@ -60,9 +60,10 @@ const SignIn = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="max-w-md w-full">
           <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            FULAFIA Electronic Tracking and Documentation System
+          <h1 className="text-6xl font-bold text-amber-700  mb-2">
+           SAKOSILE
           </h1>
+          <p className="text-gray-600">Electronic Tracking and Documentation System for Postgraduate Students</p> 
             <h1 className="text-4xl font-medium text-gray-800 mb-2">
               Sign In
             </h1>

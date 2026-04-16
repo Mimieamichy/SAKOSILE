@@ -92,6 +92,7 @@ const App = () => (
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<PGAdminDashboard />} />
             <Route path="checklist" element={<PGAdminChecklist />} />
+            <Route path="readiness" element={<PGAdminChecklist />} />
             <Route path="notifications" element={<PGAdminNotifications />} />
           </Route>
           
