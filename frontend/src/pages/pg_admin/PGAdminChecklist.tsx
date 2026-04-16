@@ -111,6 +111,7 @@ export default function PGAdminChecklist() {
   const location = useLocation();
   const isReadiness = location.pathname.includes("student-readiness");
   const CHECKLIST_CONTENT = useChecklistStore((s) => s.content);
+  const readinessTemplate = useChecklistStore((s) => s.readinessTemplate);
 
   const { token } = useAuthStore();
   const { toast } = useToast();
@@ -120,6 +121,10 @@ export default function PGAdminChecklist() {
   const debouncedSearch = useDebouncedValue(search, 300);
   const [degreeTab, setDegreeTab] = useState<"MSc" | "PhD">("MSc");
   
+  const [proposedDate, setProposedDate] = useState("");
+  const [proposedTime, setProposedTime] = useState("");
+  const [proposedVenue, setProposedVenue] = useState("");
+
   const defenseOptions = useMemo<string[]>(() => {
     return degreeTab === "MSc"
       ? ["Start", "Proposal", "Internal Defense", "External", "Completed"]
@@ -359,6 +364,25 @@ export default function PGAdminChecklist() {
   }, [degreeTab, selectedSession, selectedDepartmentId, selectedDefense, debouncedSearch, token, departments, page, itemsPerPage, toast, selectedFacultyId]);
 
   const totalPages = Math.max(1, Math.ceil(totalStudents / itemsPerPage));
+
+  const readinessPreview = useMemo(() => {
+    if (!selectedStudentForReadiness) return "";
+    const st = selectedStudentForReadiness;
+    let text = readinessTemplate || "";
+    text = text.replace(/{{DATE}}/g, new Date().toLocaleDateString());
+    text = text.replace(/{{NAME}}/g, st.user ? `${st.user.firstName} ${st.user.lastName}` : "—");
+    text = text.replace(/{{MATRIC_NO}}/g, st.matricNo || "—");
+    text = text.replace(/{{PROGRAMME}}/g, st.level.toUpperCase());
+    text = text.replace(/{{DEPARTMENT}}/g, st.department || "—");
+    text = text.replace(/{{TITLE}}/g, st.projectTopic || "—");
+    text = text.replace(/{{SUPERVISOR_1}}/g, st.majorSupervisor || "—");
+    text = text.replace(/{{SUPERVISOR_2}}/g, st.minorSupervisor || "—");
+    text = text.replace(/{{SUPERVISOR_3}}/g, st.internalExaminer || "—");
+    text = text.replace(/{{PROPOSED_DATE}}/g, proposedDate || "[Date]");
+    text = text.replace(/{{TIME}}/g, proposedTime || "[Time]");
+    text = text.replace(/{{VENUE}}/g, proposedVenue || "[Venue]");
+    return text;
+  }, [selectedStudentForReadiness, proposedDate, proposedTime, proposedVenue, readinessTemplate]);
 
   return (
     <div className="space-y-6">
@@ -752,17 +776,24 @@ export default function PGAdminChecklist() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Proposed Date</Label>
-                  <Input type="date" />
+                  <Input type="date" value={proposedDate} onChange={(e) => setProposedDate(e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-gray-700">Time</Label>
-                  <Input type="time" />
+                  <Input type="time" value={proposedTime} onChange={(e) => setProposedTime(e.target.value)} />
                 </div>
               </div>
 
               <div>
                 <Label className="text-sm font-medium text-gray-700">Venue</Label>
-                <Input placeholder="Enter proposed venue" />
+                <Input placeholder="Enter proposed venue" value={proposedVenue} onChange={(e) => setProposedVenue(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="mt-6 border-t pt-4">
+              <h3 className="text-sm font-bold text-gray-800 mb-2">Readiness Form Preview</h3>
+              <div className="bg-gray-50 p-6 rounded-md border border-gray-200 text-sm font-serif whitespace-pre-wrap text-gray-800">
+                {readinessPreview}
               </div>
             </div>
 

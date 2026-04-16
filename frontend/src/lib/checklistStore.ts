@@ -68,9 +68,41 @@ const DEFAULT_CHECKLIST_CONTENT: ChecklistContent = {
   }
 };
 
+const DEFAULT_READINESS_TEMPLATE = `FEDERAL UNIVERSITY LAFIA
+College of Postgraduate Studies
+POSTGRADUATE ORAL INTERNAL DEFENCE READINESS FORM
+
+Date: {{DATE}}
+This is to notify the School of Postgraduate Studies that the candidate whose particulars appear below, is ready for Internal Oral Defense with the following details:
+1. Name: {{NAME}}
+   Matric. Number: {{MATRIC_NO}}
+   Programme of Study: {{PROGRAMME}}
+   Course of Study: {{DEPARTMENT}}
+   Title of Dissertation/Thesis: {{TITLE}}
+   Supervisor(s):
+     i- {{SUPERVISOR_1}}
+    ii- {{SUPERVISOR_2}}
+   iii- {{SUPERVISOR_3}}
+   Proposed Date: {{PROPOSED_DATE}} Time: {{TIME}}
+   Venue: {{VENUE}}
+
+Thank you.
+
+Signature/Date: ………………………………….
+Name of Head of Department: ……………………………………….
+
+FOR OFFICE USE:
+DATE RECEIVED:
+PROPOSED DATE SUITABLE/NOT SUITABLE
+Provost’s CPGS COMMENT: ………………………………………………………………………………………………………………………
+………………………………………………………………………………………………………………………………………………………….
+SIGNATURE/ DATE: ………………………………………………………………………… STAMP:`;
+
 interface ChecklistStore {
   content: ChecklistContent;
+  readinessTemplate: string;
   updateStageContent: (level: string, stage: string, items: string[]) => void;
+  updateReadinessTemplate: (template: string) => void;
   resetToDefault: () => void;
 }
 
@@ -78,6 +110,7 @@ export const useChecklistStore = create<ChecklistStore>()(
   persist(
     (set) => ({
       content: DEFAULT_CHECKLIST_CONTENT,
+      readinessTemplate: DEFAULT_READINESS_TEMPLATE,
       updateStageContent: (level, stage, items) => 
         set((state) => ({
           content: {
@@ -88,7 +121,8 @@ export const useChecklistStore = create<ChecklistStore>()(
             }
           }
         })),
-      resetToDefault: () => set({ content: DEFAULT_CHECKLIST_CONTENT }),
+      updateReadinessTemplate: (template) => set({ readinessTemplate: template }),
+      resetToDefault: () => set({ content: DEFAULT_CHECKLIST_CONTENT, readinessTemplate: DEFAULT_READINESS_TEMPLATE }),
     }),
     {
       name: 'pg-admin-checklist-storage',

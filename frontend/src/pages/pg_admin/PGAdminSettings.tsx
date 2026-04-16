@@ -3,6 +3,7 @@ import { useChecklistStore } from "@/lib/checklistStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus, RefreshCw } from "lucide-react";
 import {
@@ -38,7 +39,7 @@ const STAGES = {
 };
 
 export default function PGAdminSettings() {
-  const { content, updateStageContent, resetToDefault } = useChecklistStore();
+  const { content, readinessTemplate, updateStageContent, updateReadinessTemplate, resetToDefault } = useChecklistStore();
   const { toast } = useToast();
 
   const [selectedLevel, setSelectedLevel] = useState<"msc" | "phd">("msc");
@@ -47,11 +48,16 @@ export default function PGAdminSettings() {
   // Track the editable items for the selected level/stage
   const currentItems = content[selectedLevel]?.[selectedStage] || [];
   const [editableItems, setEditableItems] = useState<string[]>(currentItems);
+  const [editableTemplate, setEditableTemplate] = useState<string>(readinessTemplate);
 
   // When level or stage changes, update local editable state
   React.useEffect(() => {
     setEditableItems(content[selectedLevel]?.[selectedStage] || []);
   }, [selectedLevel, selectedStage, content]);
+
+  React.useEffect(() => {
+    setEditableTemplate(readinessTemplate);
+  }, [readinessTemplate]);
 
   const handleLevelChange = (val: "msc" | "phd") => {
     setSelectedLevel(val);
@@ -78,12 +84,11 @@ export default function PGAdminSettings() {
     // Filter out empty items
     const filteredItems = editableItems.filter((i) => i.trim() !== "");
     updateStageContent(selectedLevel, selectedStage, filteredItems);
+    updateReadinessTemplate(editableTemplate);
     
     toast({
       title: "Settings Saved",
-      description: `Checklist items for ${selectedLevel.toUpperCase()} - ${
-        STAGES[selectedLevel].find(s => s.value === selectedStage)?.label
-      } updated successfully.`,
+      description: `Checklist and Readiness Form updated successfully.`,
     });
   };
 
@@ -176,9 +181,33 @@ export default function PGAdminSettings() {
             )}
           </div>
 
-          <div className="pt-6">
+          <div className="pt-6 border-t space-y-4">
+            <h3 className="font-semibold text-gray-700">Readiness Form Letter Template</h3>
+            <p className="text-xs text-gray-500">
+              Available Placeholders: 
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{DATE}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{NAME}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{MATRIC_NO}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{PROGRAMME}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{DEPARTMENT}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{TITLE}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{SUPERVISOR_1}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{SUPERVISOR_2}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{SUPERVISOR_3}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{PROPOSED_DATE}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{TIME}}"}</code>
+              <code className="bg-gray-100 px-1 py-0.5 mx-1 rounded">{"{{VENUE}}"}</code>
+            </p>
+            <Textarea 
+              value={editableTemplate}
+              onChange={(e) => setEditableTemplate(e.target.value)}
+              className="min-h-[400px] font-mono text-sm bg-gray-50"
+            />
+          </div>
+
+          <div className="pt-6 border-t flex justify-end">
             <Button className="bg-amber-700 hover:bg-amber-800 text-white" onClick={handleSave}>
-              Save Checklist Content
+              Save Settings
             </Button>
           </div>
         </CardContent>
