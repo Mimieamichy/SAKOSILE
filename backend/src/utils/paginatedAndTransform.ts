@@ -119,8 +119,6 @@ export async function paginateFormatted<T extends object>(
   
   const result: PaginatedResult<T> = { data, total, page, limit };
 
-
-
   // Post-process Student documents to convert populated supervisors to strings
 
   if ((model as any).modelName === 'Student') {

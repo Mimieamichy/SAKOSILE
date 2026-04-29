@@ -28,6 +28,8 @@ import institutionRoutes from './routes/institutions.routes';
 import schoolRoutes from './routes/school.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import pgadminRoutes from './routes/pg_admin.routes';
+import checklistRoutes from './routes/checklist.routes';
+import readinessFormRoutes from './routes/readinessForm.routes';
 
 
 import ProjectService from './services/project';
@@ -83,7 +85,7 @@ app.use('/api/auth', limiter);
 const getProjectRoot = () => {
   if (process.env.NODE_ENV === 'production') {
     // Match your multer config - go up 4 levels from dist/src
-    return path.join(__dirname, '..', '..', '..');
+    return path.join(__dirname, '..', '..', '..');2
   }
   return process.cwd();
 };
@@ -117,6 +119,8 @@ app.use('/api/institution', institutionRoutes)
 app.use('/api/school', schoolRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/pg_admin', pgadminRoutes)
+app.use('/api/checklist', checklistRoutes)
+app.use('/api/readiness', readinessFormRoutes)
 
 //Global error handler (avoid exposing stack traces in prod)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

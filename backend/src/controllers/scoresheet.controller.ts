@@ -3,7 +3,7 @@ import ScoreSheetService from '../services/scoresheet';
 import ActivityLogService from '../services/activity_log'
 import UserService from '../services/user';
 import LecturerService from '../services/lecturer';
-import { Console } from 'console';
+
 
 
 
