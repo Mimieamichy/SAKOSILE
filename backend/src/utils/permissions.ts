@@ -105,6 +105,14 @@ export enum Permission {
 
   PG_ADMIN_PROCESS = 'pg_admin_process',
 
+  // Checklist & Readiness Form
+  VIEW_CHECKLISTS = 'view_checklists',
+  MANAGE_CHECKLISTS = 'manage_checklists',
+  APPROVE_CHECKLISTS = 'approve_checklists',
+  MANAGE_TEMPLATES = 'manage_templates',
+  VIEW_TEMPLATES = 'view_templates',
+  MANAGE_STUDENTS = 'manage_students',
+
 
   // General
   LOGIN = 'login',
@@ -288,7 +296,13 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.VIEW_ALL_SESSIONS,
     Permission.VIEW_ALL_STUDENTS,
     Permission.VIEW_ALL_PROJECTS,
-    Permission.VIEW_ALL_LECTURERS
+    Permission.VIEW_ALL_LECTURERS,
+    Permission.VIEW_CHECKLISTS,
+    Permission.MANAGE_CHECKLISTS,
+    Permission.APPROVE_CHECKLISTS,
+    Permission.MANAGE_TEMPLATES,
+    Permission.VIEW_TEMPLATES,
+    Permission.MANAGE_STUDENTS,
   ]
 };
 

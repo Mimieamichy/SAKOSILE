@@ -3,6 +3,7 @@ import StudentService from "../services/students";
 import ActivityLogService from '../services/activity_log';
 import UserService from '../services/user'
 import { Types } from "mongoose";
+import {STAGES} from '../utils/constants'
 
 
 export interface AuthenticatedRequest extends Request {
@@ -47,7 +48,6 @@ export default class StudentController {
     }
   }
 
-
   static async getOneStudent(req: AuthenticatedRequest, res: Response) {
     try {
       const { studentId } = req.params
@@ -70,130 +70,45 @@ export default class StudentController {
     }
   }
 
-  static async getAllMscStudentsByDepartment(req: AuthenticatedRequest, res: Response) {
+  static async getStudents(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { department, session } = req.params;
-      const userId = req.user?.id || '';
+      const { level, department, session, stage } = req.params;
 
-      // Query params for pagination
+      if (!['msc', 'phd'].includes(level)) {
+        res.status(400).json({ success: false, error: 'Invalid level. Must be msc or phd' });
+        return
+      }
+
+      if (level === 'msc' && !Object.values(STAGES.MSC).includes(stage)) {
+        res.status(400).json({ success: false, error: `Invalid stage for MSC. Must be one of: ${Object.values(STAGES.MSC).join(', ')}` });
+        return;
+      }
+      if (level === 'phd' && !Object.values(STAGES.PHD).includes(stage)) {
+        res.status(400).json({ success: false, error: `Invalid stage for PHD. Must be one of: ${Object.values(STAGES.PHD).join(', ')}` });
+        return;
+      }
+      
+      const userId = req.user?.id || '';
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const sessionId = new Types.ObjectId(session);
 
-
-      const students = await StudentService.getAllMscStudentsInDepartment(
+      const students = await StudentService.getStudents(
+        level as 'msc' | 'phd',
         department,
         userId,
         sessionId,
+        stage,
         page,
         limit
       );
 
-      res.status(200).json({ success: true, ...students });
+      res.status(200).json({ success: true, data: students });
     } catch (err: any) {
       console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to get MSC students in department',
-        message: err.message,
-      });
+      res.status(400).json({success: false, error: 'Failed to get students', message: err.message});
     }
   }
-
-
-
-  static async getAllMscStudentsInFaculty(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { faculty, session } = req.params;
-      const userId = req.user?.id || '';
-
-      // Query params for pagination
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const sessionId = new Types.ObjectId(session);
-
-
-      const students = await StudentService.getAllMscStudentsInFaculty(
-        faculty,
-        userId,
-        sessionId,
-        page,
-        limit
-      );
-
-      res.status(200).json({ success: true, ...students });
-    } catch (err: any) {
-      console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to get MSC students in faculty',
-        message: err.message,
-      });
-    }
-  }
-
-
-  static async getAllPhdStudentsByDepartment(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { department, session } = req.params;
-      const userId = req.user?.id || '';
-
-      // Query params for pagination
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const sessionId = new Types.ObjectId(session);
-
-
-      const students = await StudentService.getAllPhdStudentsInDepartment(
-        department,
-        userId,
-        sessionId,
-        page,
-        limit
-      );
-
-      res.status(200).json({ success: true, ...students });
-    } catch (err: any) {
-      console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to PHD get students in department',
-        message: err.message,
-      });
-    }
-  }
-
-
-  static async getAllPhdStudentsInFaculty(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { faculty, session } = req.params;
-      const userId = req.user?.id || '';
-
-      // Query params for pagination
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const sessionId = new Types.ObjectId(session);
-
-
-      const students = await StudentService.getAllPhdStudentsInFaculty(
-        faculty,
-        userId,
-        sessionId,
-        page,
-        limit
-      );
-
-      res.status(200).json({ success: true, ...students });
-    } catch (err: any) {
-      console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to get PHD students in faculty',
-        message: err.message,
-      });
-    }
-  }
-
 
   static async assignSupervisor(req: AuthenticatedRequest, res: Response) {
     try {
