@@ -142,7 +142,7 @@ export default function ResetPassword() {
 
           <p className="text-center text-sm text-gray-500">
             Remembered?{" "}
-            <Link to="/" className="text-amber-700 hover:underline">
+            <Link to="/signin" className="text-amber-700 hover:underline">
               Sign in
             </Link>
           </p>

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { checklistService } from './checklistService';
+import axios from 'axios';
 
 export type ChecklistContent = Record<string, Record<string, string[]>>;
 
@@ -100,18 +102,25 @@ SIGNATURE/ DATE: ………………………………………………………
 
 interface ChecklistStore {
   content: ChecklistContent;
+  templateIds: Record<string, Record<string, string>>; // Keep track of template IDs by level and stage
   readinessTemplate: string;
-  updateStageContent: (level: string, stage: string, items: string[]) => void;
+  updateStageContent: (level: string, stage: string, items: string[], templateId?: string) => void;
   updateReadinessTemplate: (template: string) => void;
   resetToDefault: () => void;
+
+  fetchTemplatesFromApi: (level: string, token: string) => Promise<void>;
+  saveTemplateToApi: (level: string, stage: string, items: string[], token: string) => Promise<void>;
+  deleteTemplateFromApi: (level: string, stage: string, token: string) => Promise<void>;
 }
 
 export const useChecklistStore = create<ChecklistStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       content: DEFAULT_CHECKLIST_CONTENT,
+      templateIds: {},
       readinessTemplate: DEFAULT_READINESS_TEMPLATE,
-      updateStageContent: (level, stage, items) => 
+      
+      updateStageContent: (level, stage, items, templateId) => 
         set((state) => ({
           content: {
             ...state.content,
@@ -119,10 +128,101 @@ export const useChecklistStore = create<ChecklistStore>()(
               ...state.content[level],
               [stage]: items
             }
-          }
+          },
+          templateIds: templateId ? {
+            ...state.templateIds,
+            [level]: {
+              ...state.templateIds[level],
+              [stage]: templateId
+            }
+          } : state.templateIds
         })),
+
       updateReadinessTemplate: (template) => set({ readinessTemplate: template }),
-      resetToDefault: () => set({ content: DEFAULT_CHECKLIST_CONTENT, readinessTemplate: DEFAULT_READINESS_TEMPLATE }),
+      resetToDefault: () => set({ content: DEFAULT_CHECKLIST_CONTENT, readinessTemplate: DEFAULT_READINESS_TEMPLATE, templateIds: {} }),
+
+      fetchTemplatesFromApi: async (level, token) => {
+        const baseUrl = import.meta.env.VITE_BACKEND_URL;
+        try {
+          const response = await axios.get(`${baseUrl}/template?level=${level}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const templates = response.data.data || response.data;
+          
+          if (Array.isArray(templates)) {
+            set((state) => {
+              const newLevelContent = { ...state.content[level] };
+              const newLevelIds = { ...state.templateIds[level] };
+              
+              templates.forEach(t => {
+                if (t.stage && t.items) {
+                  newLevelContent[t.stage] = t.items;
+                  newLevelIds[t.stage] = t._id;
+                }
+              });
+
+              return {
+                content: {
+                  ...state.content,
+                  [level]: newLevelContent
+                },
+                templateIds: {
+                  ...state.templateIds,
+                  [level]: newLevelIds
+                }
+              };
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch templates:", error);
+        }
+      },
+
+      saveTemplateToApi: async (level, stage, items, token) => {
+        const { templateIds } = get();
+        const existingTemplateId = templateIds[level]?.[stage];
+
+        if (existingTemplateId) {
+          // Update existing
+          await checklistService.updateTemplate(existingTemplateId, items, token);
+        } else {
+          // Create new
+          const response = await checklistService.createTemplate({ level, stage, items }, token);
+          const newTemplateId = response.data?._id || response._id;
+          
+          if (newTemplateId) {
+            set((state) => ({
+              templateIds: {
+                ...state.templateIds,
+                [level]: {
+                  ...state.templateIds[level],
+                  [stage]: newTemplateId
+                }
+              }
+            }));
+          }
+        }
+      },
+
+      deleteTemplateFromApi: async (level, stage, token) => {
+        const { templateIds } = get();
+        const existingTemplateId = templateIds[level]?.[stage];
+
+        if (existingTemplateId) {
+          await checklistService.deleteTemplate(existingTemplateId, token);
+          
+          set((state) => {
+            const newLevelTemplates = { ...state.templateIds[level] };
+            delete newLevelTemplates[stage];
+            return {
+              templateIds: {
+                ...state.templateIds,
+                [level]: newLevelTemplates
+              }
+            };
+          });
+        }
+      }
     }),
     {
       name: 'pg-admin-checklist-storage',

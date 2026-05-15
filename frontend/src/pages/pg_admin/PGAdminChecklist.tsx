@@ -12,10 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, ClipboardList, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, ClipboardList, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 import { useChecklistStore } from "@/lib/checklistStore";
+import { readinessService } from "@/lib/readinessService";
+import { checklistService } from "@/lib/checklistService";
 import waterMark from "../fulafia logo.png";
 
 interface Supervisor {
@@ -161,6 +163,13 @@ export default function PGAdminChecklist() {
   const [selectedStudentForReadiness, setSelectedStudentForReadiness] = useState<StudentFromAPI | null>(null);
   const [selectedStudentForChecklist, setSelectedStudentForChecklist] = useState<StudentFromAPI | null>(null);
   const [checklistValues, setChecklistValues] = useState<Record<number, { ticked: boolean; remarks: string }>>({});
+  const [currentChecklistId, setCurrentChecklistId] = useState<string | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isTicking, setIsTicking] = useState<Record<number, boolean>>({});
+
+  const [dynamicReadinessTemplate, setDynamicReadinessTemplate] = useState<string>("");
+  const [studentFormResponse, setStudentFormResponse] = useState<any>(null);
+  const [isFetchingTemplate, setIsFetchingTemplate] = useState(false);
 
   const selectedDefenseLabel = useMemo(() => {
     if (selectedDefense === "all") return "All Stages";
@@ -365,10 +374,124 @@ export default function PGAdminChecklist() {
 
   const totalPages = Math.max(1, Math.ceil(totalStudents / itemsPerPage));
 
+  // Fetch readiness template and student form when student is selected
+  useEffect(() => {
+    if (!selectedStudentForReadiness || !token) return;
+
+    const fetchReadinessData = async () => {
+      setIsFetchingTemplate(true);
+      try {
+        // 1. Fetch all templates and find the matching one
+        // Ideally we'd have a more specific endpoint, but using what we have
+        const templatesRes = await readinessService.getAllTemplates(token);
+        const templates = Array.isArray(templatesRes.data) ? templatesRes.data : (Array.isArray(templatesRes) ? templatesRes : []);
+        
+        const matchingTemplate = templates.find((t: any) => 
+          t.level.toLowerCase() === selectedStudentForReadiness.level.toLowerCase() &&
+          getStageKey(selectedDefense) === t.stage
+        );
+
+        if (matchingTemplate) {
+          setDynamicReadinessTemplate(matchingTemplate.form);
+        } else {
+          // Fallback to the default from store if no backend template found
+          setDynamicReadinessTemplate(readinessTemplate);
+        }
+
+        // 2. Fetch student's specific readiness form data
+        const studentForm = await readinessService.getStudentReadinessForm(selectedStudentForReadiness._id, token);
+        setStudentFormResponse(studentForm.data || studentForm);
+      } catch (error) {
+        console.error("Failed to fetch readiness data:", error);
+        setDynamicReadinessTemplate(readinessTemplate);
+      } finally {
+        setIsFetchingTemplate(false);
+      }
+    };
+
+    fetchReadinessData();
+  }, [selectedStudentForReadiness, selectedDefense, token, readinessTemplate]);
+
+  // Fetch student checklist when student is selected for checklist
+  useEffect(() => {
+    if (!selectedStudentForChecklist || !token) return;
+
+    const fetchChecklist = async () => {
+      try {
+        const stageKey = getStageKey(selectedStudentForChecklist.currentStage);
+        const res = await checklistService.getStudentChecklist(selectedStudentForChecklist._id, stageKey, token);
+        const checklist = res.data || res;
+        
+        if (checklist && checklist._id) {
+          setCurrentChecklistId(checklist._id);
+          
+          // Map backend items to local state
+          const newValues: Record<number, { ticked: boolean; remarks: string }> = {};
+          if (Array.isArray(checklist.items)) {
+            checklist.items.forEach((item: any, idx: number) => {
+              newValues[idx] = {
+                ticked: item.ticked || false,
+                remarks: item.remarks || ""
+              };
+            });
+          }
+          setChecklistValues(newValues);
+        }
+      } catch (error) {
+        console.error("Failed to fetch student checklist:", error);
+      }
+    };
+
+    fetchChecklist();
+  }, [selectedStudentForChecklist, token]);
+
+  const handleTickItem = async (idx: number, templateItemId: string, ticked: boolean) => {
+    if (!currentChecklistId || !token) return;
+
+    setIsTicking(prev => ({ ...prev, [idx]: true }));
+    try {
+      await checklistService.tickItem(currentChecklistId, templateItemId, ticked, token);
+      setChecklistValues(prev => ({
+        ...prev,
+        [idx]: { ...prev[idx], ticked }
+      }));
+      toast({ title: "Checklist item updated" });
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.response?.data?.message || "Failed to update item.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTicking(prev => ({ ...prev, [idx]: false }));
+    }
+  };
+
+  const handleApproveStage = async () => {
+    if (!currentChecklistId || !token) return;
+
+    setIsApproving(true);
+    try {
+      await checklistService.approveForNextStage(currentChecklistId, token);
+      toast({ title: "Stage approved", description: "Student can now proceed to the next stage." });
+      setSelectedStudentForChecklist(null);
+      // Refresh students list
+      // ... (fetchStudents is already in an effect)
+    } catch (error: any) {
+      toast({
+        title: "Approval failed",
+        description: error.response?.data?.message || "Failed to approve stage.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   const readinessPreview = useMemo(() => {
     if (!selectedStudentForReadiness) return "";
     const st = selectedStudentForReadiness;
-    let text = readinessTemplate || "";
+    let text = dynamicReadinessTemplate || readinessTemplate || "";
     text = text.replace(/{{DATE}}/g, new Date().toLocaleDateString());
     text = text.replace(/{{NAME}}/g, st.user ? `${st.user.firstName} ${st.user.lastName}` : "—");
     text = text.replace(/{{MATRIC_NO}}/g, st.matricNo || "—");
@@ -382,7 +505,7 @@ export default function PGAdminChecklist() {
     text = text.replace(/{{TIME}}/g, proposedTime || "[Time]");
     text = text.replace(/{{VENUE}}/g, proposedVenue || "[Venue]");
     return text;
-  }, [selectedStudentForReadiness, proposedDate, proposedTime, proposedVenue, readinessTemplate]);
+  }, [selectedStudentForReadiness, proposedDate, proposedTime, proposedVenue, dynamicReadinessTemplate, readinessTemplate]);
 
   return (
     <div className="space-y-6">
@@ -906,11 +1029,9 @@ export default function PGAdminChecklist() {
                               <Checkbox 
                                 checked={val.ticked} 
                                 onCheckedChange={(checked) => 
-                                  setChecklistValues(prev => ({
-                                    ...prev,
-                                    [idx]: { ...prev[idx], ticked: checked === true }
-                                  }))
+                                  handleTickItem(idx, String(idx), checked === true)
                                 }
+                                disabled={isTicking[idx]}
                               />
                             </td>
                             <td className="p-3 border-r">
@@ -918,28 +1039,11 @@ export default function PGAdminChecklist() {
                                 placeholder="Add remarks..." 
                                 className="h-8 text-xs" 
                                 value={val.remarks}
-                                onChange={(e) => 
-                                  setChecklistValues(prev => ({
-                                    ...prev,
-                                    [idx]: { ...(prev[idx] || { ticked: false }), remarks: e.target.value }
-                                  }))
-                                }
+                                disabled
                               />
                             </td>
                             <td className="p-3 text-center">
-                              <Button 
-                                size="sm" 
-                                className="bg-amber-700 hover:bg-amber-800 text-white h-8 text-xs"
-                                onClick={() => {
-                                  toast({
-                                    title: "Checklist Item Updated",
-                                    description: `Item ${idx + 1} has been submitted.`,
-                                  });
-                                  // TODO: Add API call here to save this specific item
-                                }}
-                              >
-                                Submit
-                              </Button>
+                              {isTicking[idx] && <Loader2 className="w-4 h-4 animate-spin mx-auto text-amber-700" />}
                             </td>
                           </tr>
                         );
@@ -955,7 +1059,22 @@ export default function PGAdminChecklist() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
+              <Button 
+                variant="default" 
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleApproveStage}
+                disabled={isApproving || !currentChecklistId}
+              >
+                {isApproving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Approving...
+                  </>
+                ) : (
+                  "Approve for Next Stage"
+                )}
+              </Button>
               <Button className="bg-amber-700 hover:bg-amber-800 text-white" onClick={() => setSelectedStudentForChecklist(null)}>
                 Close Checklist
               </Button>
