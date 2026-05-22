@@ -160,7 +160,7 @@ export default class StudentService {
         return { deletedUser, deletedStudent };
     }
 
-    static async getStudents(level: 'msc' | 'phd', department: string, userId: string, session: Types.ObjectId, stage: string, page = 1, limit = 10) {
+    static async getStudents(level: 'msc' | 'phd', department: string, userId: string, session: Types.ObjectId, stage: string | undefined, page = 1, limit = 10) {
         if (!department || department.trim() === '') {
             const lecturer = await LecturerService.getLecturerById(userId);
             department = lecturer?.department ?? 'none';
@@ -168,14 +168,13 @@ export default class StudentService {
 
         const sessionId = session.toString();
 
-        return await paginateFormatted(
-            Student,
-            page,
-            limit,
-            { department, level, stage, session: sessionId }
-        );
+        const filter: any = { department, level, session: sessionId };
 
-         
+        if (stage !== undefined) {
+            filter.stage = stage;
+        }
+
+        return await paginateFormatted(Student, page, limit, filter);
     }
 
     static async getStudentsBySupervisorMsc(userId: string) {

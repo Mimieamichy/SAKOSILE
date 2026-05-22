@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { authenticate } from '../middlewares/auth';
 import { checkPermission } from '../middlewares/permission';
 import upload  from '../middlewares/upload';
-import ProjectController from '../controllers/projectController';
+import ProjectController from '../controllers/project.controller';
 import { Permission } from '../utils/permissions';
 
 const router = Router();

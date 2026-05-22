@@ -34,10 +34,10 @@ router.get('', authenticate, StudentController.getOneStudentByUser);
 router.get('/:studentId', StudentController.getOneStudent);
 router.put('/:studentId', authenticate, StudentController.editStudent);
 router.delete('/:studentId', authenticate, checkPermission(Permission.DELETE_STUDENT), StudentController.deleteStudent);
-router.get('/:level/:department/:session/:stage', authenticate, checkPermission(Permission.VIEW_ALL_STUDENTS),StudentController.getStudents);
+router.get('/:level/:department/:session', authenticate, checkPermission(Permission.VIEW_ALL_STUDENTS),StudentController.getStudents);
 router.post('/assignSupervisor/:studentId', validateBody(addSupervisorSchema), authenticate, checkPermission(Permission.ASSIGN_SUPERVISORS), StudentController.assignSupervisor);
 router.get('/getMyStudents/msc', authenticate, checkPermission(Permission.VIEW_PROJECT_BY_STUDENT), StudentController.getStudentsBySupervisorMsc)
-router.get('/getMyStudents/phd', authenticate, checkPermission(Permission.VIEW_PROJECT_BY_STUDENT), StudentController.getStudentsBySupervisorPhd)
+router.get('/getMyStudents/phd', authenticate, checkPermission(Permission.VIEW_PROJECT_BY_STUDENT), StudentController.getStudentsBySupervisorPhd);
 router.post('/assign-college-rep/:staffId/:studentId', authenticate, checkPermission(Permission.ASSIGN_COLLEGE_REP), StudentController.assignCollegeRep);
 
 
