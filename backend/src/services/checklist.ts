@@ -2,6 +2,7 @@
 import { Types } from 'mongoose';
 import { ChecklistTemplate, StudentChecklist, Student, IStudentChecklist } from '../models/index';
 import { STAGES } from '../utils/constants';
+import ReadinessFormService from './readinessForm';
 
 
 export default class ChecklistService {
@@ -28,6 +29,25 @@ export default class ChecklistService {
       items,
       createdBy: new Types.ObjectId(data.createdBy),
     });
+  }
+
+  /**
+   * Upsert logic: creates if not exists, updates if it does.
+   */
+  static async createOrUpdateTemplate(data: {school: string; level: 'msc' | 'phd'; stage: string; items: string[]; createdBy: string}) {
+    const items = data.items.map((item) => ({
+      label: item,
+      required: true
+    }));
+
+    return ChecklistTemplate.findOneAndUpdate(
+      { school: data.school, level: data.level, stage: data.stage },
+      { 
+        items, 
+        createdBy: new Types.ObjectId(data.createdBy) 
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
   }
 
   /**
@@ -189,22 +209,38 @@ export default class ChecklistService {
     student.currentStage = nextStage;
     await student.save();
 
+    // === Automatically assign next stage documentation (Merge processes) ===
+    try {
+      // 1. Create next stage checklist
+      await this.createStudentChecklist(student._id.toString(), nextStage, checklist.level);
+      // 2. Assign next stage readiness form
+      await ReadinessFormService.assignReadinessForm(student._id.toString(), nextStage, checklist.level);
+    } catch (err) {
+      console.error('Failed to automatically setup next stage documentation:', err);
+      // We don't throw here to avoid rolling back the approval, 
+      // but we log it. The documentation might be missing templates.
+    }
+
     return { checklist, student };
   }
 
 
   static async getStudentChecklist(studentId: string, stage: string) {
     const checklist = await StudentChecklist.findOne({ student: studentId, stage })
-      .populate('template','title')
-      .populate('approvedBy','firstName lastName');
-    if (!checklist) throw new Error('No checklist found for this student and stage');
+      .populate('template')
+      .populate('approvedBy', 'firstName lastName');
+    if (!checklist) throw new Error('Checklist not found');
     return checklist;
+  }
+
+  static async getStudentById(studentId: string) {
+    return Student.findById(studentId);
   }
 
   static async getAllChecklistsForStudent(studentId: string) {
     return StudentChecklist.find({ student: studentId })
-      .populate('template', 'title stage')
-      .sort({ createdAt: 1 });
+      .populate('template')
+      .sort({ createdAt: -1 });
   }
 
   // ── HELPERS ────────────────────────────────────────────────────────────────

@@ -29,6 +29,26 @@ export default class ReadinessFormService {
     });
   }
 
+  /**
+   * Upsert logic: creates if not exists, updates if it does.
+   */
+  static async createOrUpdateTemplate(data: {
+    school: string;
+    level: 'msc' | 'phd';
+    stage: string;
+    form: string;
+    createdBy: string;
+  }) {
+    return ReadinessFormTemplate.findOneAndUpdate(
+      { school: data.school, level: data.level, stage: data.stage },
+      { 
+        form: data.form, 
+        createdBy: new Types.ObjectId(data.createdBy) 
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+
   static async updateTemplate(templateId: string, form: string) {
     const template = await ReadinessFormTemplate.findById(templateId);
     if (!template) throw new Error('Readiness form template not found');
@@ -105,8 +125,8 @@ export default class ReadinessFormService {
 
   static async getAllReadinessFormsForStudent(studentId: string) {
     return ReadinessForm.find({ student: studentId })
-      .populate('template', 'form stage')
-      .sort({ createdAt: 1 });
+      .populate('template', 'form stage level')
+      .sort({ createdAt: -1 });
   }
 
   static async deleteStudentReadinessForm(formId: string) {

@@ -8,6 +8,7 @@ import SupervisorDashboardShell from "./pages/supervisor/SupervisorDashboardShel
 import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
 import MyStudentsPage from "./pages/supervisor/MyStudentsPage";
 import SignIn from "./pages/SignIn";
+import LandingPage from "./pages/LandingPage";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import StudentDashboardShell from "./pages/student/StudentDashboardShell";
@@ -54,7 +55,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<SignIn />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/signin" element={<SignIn />} />
           
           <Route 
             path="/admin" 

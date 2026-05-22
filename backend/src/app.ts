@@ -30,6 +30,7 @@ import analyticsRoutes from './routes/analytics.routes';
 import pgadminRoutes from './routes/pg_admin.routes';
 import checklistRoutes from './routes/checklist.routes';
 import readinessFormRoutes from './routes/readinessForm.routes';
+import templateRoutes from './routes/template.routes';
 
 
 import ProjectService from './services/project';
@@ -121,6 +122,7 @@ app.use('/api/analytics', analyticsRoutes)
 app.use('/api/pg_admin', pgadminRoutes)
 app.use('/api/checklist', checklistRoutes)
 app.use('/api/readiness', readinessFormRoutes)
+app.use('/api', templateRoutes)
 
 //Global error handler (avoid exposing stack traces in prod)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

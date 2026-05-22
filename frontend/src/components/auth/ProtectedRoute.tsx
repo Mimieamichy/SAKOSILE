@@ -18,12 +18,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!isAuthenticated) {
     // Redirect to login but save the current location they were trying to go to
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/signin" state={{ from: location }} replace />;
   }
 
   if (allowedRoles && !hasRole(allowedRoles)) {
     // Role not authorized - redirect to their specific home page or a default one
-    const homePath = user ? ROLE_HOME_PATHS[user.role as Role] || "/portal" : "/";
+    const homePath = user ? ROLE_HOME_PATHS[user.role as Role] || "/portal" : "/signin";
     return <Navigate to={homePath} replace />;
   }
 
