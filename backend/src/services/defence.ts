@@ -33,19 +33,18 @@ export default class DefenceService {
     // Fetch defences with students
     const defences = await Defence.find(query).populate("students");
 
-    if (isHodOrProvost) {
-      // Filter defences that still have at least one unmarked student
-      const activeDefences = defences.filter((def) => {
-        if (!Array.isArray(def.students)) return true;
-        const allMarked = def.students.every(
-          (student: any) => student.defenceMarked === true
-        );
-        console.log(activeDefences, def.students)
-        return !allMarked; // still active if not all marked
-      });
-      
-      return activeDefences.length > 0;
-    }
+  if (isHodOrProvost) {
+    // Filter defences that still have at least one unmarked student
+    const activeDefences = defences.filter((def) => {
+      if (!Array.isArray(def.students)) return true;
+      const allMarked = def.students.every(
+        (student: any) => student.defenceMarked === true
+      );
+      return !allMarked; // still active if not all marked
+    });
+    
+    return activeDefences.length > 0;
+  }
 
   
 
@@ -241,6 +240,8 @@ export default class DefenceService {
 
     if (!defence) throw new Error("Defence not found");
 
+    console.log("Defence:", defence)
+
     // authorization
     const isPanelMember = defence.panelMembers.some((m: any) => {
       // Handle both ObjectId and string types
@@ -323,6 +324,8 @@ export default class DefenceService {
 
       return studentData;
     });
+
+
 
     const combinedData = {
       id: defence._id.toString(),
@@ -757,6 +760,7 @@ static async getDefenceForPanelMember(program: string, userId: string) {
 
     return visibleDefences;
   }
+  console.log(defences)
 
   return defences;
 }
