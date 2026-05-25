@@ -72,22 +72,27 @@ export default class StudentController {
 
   static async getStudents(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { level, department, session, stage } = req.params;
+      const { level, department, session } = req.params;
+      const stage  = req.query.stage as string | undefined;
+
 
       if (!['msc', 'phd'].includes(level)) {
         res.status(400).json({ success: false, error: 'Invalid level. Must be msc or phd' });
-        return
+        return;
       }
 
-      if (level === 'msc' && !Object.values(STAGES.MSC).includes(stage)) {
-        res.status(400).json({ success: false, error: `Invalid stage for MSC. Must be one of: ${Object.values(STAGES.MSC).join(', ')}` });
-        return;
+      // Only validate stage if it was actually provided
+      if (stage !== undefined) {
+        if (level === 'msc' && !Object.values(STAGES.MSC).includes(stage)) {
+          res.status(400).json({ success: false, error: `Invalid stage for MSC. Must be one of: ${Object.values(STAGES.MSC).join(', ')}` });
+          return;
+        }
+        if (level === 'phd' && !Object.values(STAGES.PHD).includes(stage)) {
+          res.status(400).json({ success: false, error: `Invalid stage for PHD. Must be one of: ${Object.values(STAGES.PHD).join(', ')}` });
+          return;
+        }
       }
-      if (level === 'phd' && !Object.values(STAGES.PHD).includes(stage)) {
-        res.status(400).json({ success: false, error: `Invalid stage for PHD. Must be one of: ${Object.values(STAGES.PHD).join(', ')}` });
-        return;
-      }
-      
+
       const userId = req.user?.id || '';
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -98,7 +103,7 @@ export default class StudentController {
         department,
         userId,
         sessionId,
-        stage,
+        stage as string | undefined, // pass undefined when absent
         page,
         limit
       );
@@ -106,7 +111,7 @@ export default class StudentController {
       res.status(200).json({ success: true, data: students });
     } catch (err: any) {
       console.error(err);
-      res.status(400).json({success: false, error: 'Failed to get students', message: err.message});
+      res.status(400).json({ success: false, error: 'Failed to get students', message: err.message });
     }
   }
 
