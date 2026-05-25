@@ -6,7 +6,7 @@ import AddHodModal, { NewHodData } from "@/components/AddHodModal";
 import AdminStaffManagement from "./AdminStaffManagement";
 import UpdatePasswordModal from "./UpdatePasswordModal";
 import axios from "axios";
-import { useAuth } from "./AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function Admin() {
-  const { user, token, logout } = useAuth();
+  const { user, token, logout } = useAuthStore();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -54,7 +54,7 @@ export default function Admin() {
           })}
         </span>
         <div className="flex items-center gap-4">
-          <span className="text-gray-600 uppercase">{user?.role}</span>
+          <span className="text-gray-600 uppercase">{user?.roles?.[0] || "Admin"}</span>
           <Lock
             className="w-6 h-6 text-gray-600 cursor-pointer"
             onClick={() => setResetModalOpen(true)}
@@ -91,17 +91,20 @@ export default function Admin() {
             return;
           }
 
-          // Build payload: include faculty & department for all roles (modal now provides names)
-          const body: Partial<NewHodData> = {
+          // Build payload: include faculty & department only if not pg_admin
+          const body: any = {
             title: payload.title,
             firstName: payload.firstName,
             lastName: payload.lastName,
             staffId: payload.staffId,
             email: payload.email,
             role: payload.role,
-            faculty: payload.faculty ?? "",
-            department: payload.department ?? "",
           };
+
+          if (payload.role !== "pg_admin") {
+            body.faculty = payload.faculty ?? "";
+            body.department = payload.department ?? "";
+          }
 
           // Choose endpoint based on role
           const endpoint =
@@ -109,6 +112,8 @@ export default function Admin() {
               ? "/lecturer/add-provost"
               : payload.role === "dean"
               ? "/lecturer/add-dean"
+              : payload.role === "pg_admin"
+              ? "/pg_admin/admin"
               : "/lecturer/add-hod";
 
           try {

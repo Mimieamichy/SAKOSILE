@@ -1,7 +1,6 @@
 // src/DashboardShell.tsx
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "./AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { Menu, Power, Bell, Lock } from "lucide-react";
 import {
   Dialog,
@@ -15,14 +14,19 @@ import { useNotificationStore } from "@/lib/notificationStore";
 import UpdatePasswordModal from "./UpdatePasswordModal";
 import DefenseDayPage from "./DefenseDayPage";
 import NotificationCenter from "./NotificationCenter";
+import FacultyScoreSheets from "./faculty/FacultyScoreSheets";
 import { useNavigate } from "react-router-dom";
-export type DashboardView = "notifications" | "defenseDay";
+import { Role } from "@/config/roles";
+export type DashboardView = "notifications" | "defenseDay" | "facultyScoreSheets";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function OddDashboardShell() {
-  const { user, logout, token } = useAuth();
+  const { user, logout, token, hasRole } = useAuthStore();
   const userName = user?.userName || "User";
+
+  const isFacultyRep = hasRole(Role.FACULTY_PG_REP);
+  const isSupervisor = hasRole([Role.SUPERVISOR, Role.MAJOR_SUPERVISOR]);
 
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<DashboardView>("defenseDay");
@@ -34,6 +38,7 @@ export default function OddDashboardShell() {
 
   const unreadCount = useNotificationStore((s) => s.unreadCount());
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
+  const notifications = useNotificationStore((s) => s.notifications);
 
   const handleLogout = () => {
     logout();
@@ -53,7 +58,8 @@ export default function OddDashboardShell() {
 
   useEffect(() => {
     if (token) {
-      fetchNotifications({ baseUrl, token });
+      const isInitialFetch = notifications.length === 0;
+      fetchNotifications({ baseUrl, token, silent: !isInitialFetch });
     }
   }, [token, fetchNotifications]);
 
@@ -65,6 +71,8 @@ export default function OddDashboardShell() {
 
       case "defenseDay":
         return <DefenseDayPage />;
+      case "facultyScoreSheets":
+        return <FacultyScoreSheets onBack={() => setCurrentView("defenseDay")} />;
       default:
         return null;
     }
@@ -95,16 +103,27 @@ export default function OddDashboardShell() {
                   setCurrentView("defenseDay");
                   setIsMenuOpen(false);
                 }}
-                className="cursor-pointer hover:text-amber-700"
+                className={`cursor-pointer hover:text-amber-700 p-2 rounded-md transition-colors ${currentView === 'defenseDay' ? 'bg-amber-50 text-amber-700 font-medium' : ''}`}
               >
                 Defense Day
               </li>
+              {isFacultyRep && !isSupervisor && (
+                <li
+                  onClick={() => {
+                    setCurrentView("facultyScoreSheets");
+                    setIsMenuOpen(false);
+                  }}
+                  className={`cursor-pointer hover:text-amber-700 p-2 rounded-md transition-colors ${currentView === 'facultyScoreSheets' ? 'bg-amber-50 text-amber-700 font-medium' : ''}`}
+                >
+                  Score Sheets
+                </li>
+              )}
               <li
                 onClick={() => {
                   setCurrentView("notifications");
                   setIsMenuOpen(false);
                 }}
-                className="cursor-pointer hover:text-amber-700"
+                className={`cursor-pointer hover:text-amber-700 p-2 rounded-md transition-colors ${currentView === 'notifications' ? 'bg-amber-50 text-amber-700 font-medium' : ''}`}
               >
                 Notifications
               </li>

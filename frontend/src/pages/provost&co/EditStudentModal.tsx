@@ -4,12 +4,13 @@ import { Input } from "@/components/ui/input";
 import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+import { useAuthStore } from "@/store/authStore";
+
 interface EditStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   studentId: string; // API id (used in GET and PUT)
   baseUrl: string; // pass import.meta.env.VITE_BACKEND_URL from parent
-  token?: string | null;
   onUpdated?: (updatedStudent: any) => void; // optional callback to update parent state
 }
 
@@ -18,9 +19,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({
   onClose,
   studentId,
   baseUrl,
-  token,
   onUpdated,
 }) => {
+  const { token } = useAuthStore();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(false);

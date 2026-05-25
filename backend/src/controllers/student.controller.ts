@@ -3,6 +3,7 @@ import StudentService from "../services/students";
 import ActivityLogService from '../services/activity_log';
 import UserService from '../services/user'
 import { Types } from "mongoose";
+import {STAGES} from '../utils/constants'
 
 
 export interface AuthenticatedRequest extends Request {
@@ -20,6 +21,7 @@ export default class StudentController {
       const { firstName, lastName, email, degree: level, matNo: matricNo, session, projectTopic } = req.body;
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const newStudent = await StudentService.addStudent({
@@ -31,20 +33,20 @@ export default class StudentController {
         userId,
         session,
         projectTopic,
+        school,
       });
       const studentData = await StudentService.getOneStudent(String(newStudent._id))
       if (!studentData) {
         res.status(404).json({ success: false, error: 'Student not found' });
         return
       }
-      await ActivityLogService.logActivity(userId, userName, role, 'added', `student ${firstName} ${lastName} with Matric No: (${matricNo})`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'added', `student ${firstName} ${lastName} with Matric No: (${matricNo})`, studentData.department, school);
       res.status(201).json({ success: true, data: newStudent });
     } catch (err: any) {
       console.log(err)
       res.status(400).json({success: false, error: 'Failed to add student', message: err.message});
     }
   }
-
 
   static async getOneStudent(req: AuthenticatedRequest, res: Response) {
     try {
@@ -68,130 +70,50 @@ export default class StudentController {
     }
   }
 
-  static async getAllMscStudentsByDepartment(req: AuthenticatedRequest, res: Response) {
+  static async getStudents(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const { department, session } = req.params;
-      const userId = req.user?.id || '';
+      const { level, department, session } = req.params;
+      const stage  = req.query.stage as string | undefined;
 
-      // Query params for pagination
+
+      if (!['msc', 'phd'].includes(level)) {
+        res.status(400).json({ success: false, error: 'Invalid level. Must be msc or phd' });
+        return;
+      }
+
+      // Only validate stage if it was actually provided
+      if (stage !== undefined) {
+        if (level === 'msc' && !Object.values(STAGES.MSC).includes(stage)) {
+          res.status(400).json({ success: false, error: `Invalid stage for MSC. Must be one of: ${Object.values(STAGES.MSC).join(', ')}` });
+          return;
+        }
+        if (level === 'phd' && !Object.values(STAGES.PHD).includes(stage)) {
+          res.status(400).json({ success: false, error: `Invalid stage for PHD. Must be one of: ${Object.values(STAGES.PHD).join(', ')}` });
+          return;
+        }
+      }
+
+      const userId = req.user?.id || '';
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const sessionId = new Types.ObjectId(session);
 
-
-      const students = await StudentService.getAllMscStudentsInDepartment(
+      const students = await StudentService.getStudents(
+        level as 'msc' | 'phd',
         department,
         userId,
         sessionId,
+        stage as string | undefined, // pass undefined when absent
         page,
         limit
       );
 
-      res.status(200).json({ success: true, ...students });
+      res.status(200).json({ success: true, data: students });
     } catch (err: any) {
       console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to get MSC students in department',
-        message: err.message,
-      });
+      res.status(400).json({ success: false, error: 'Failed to get students', message: err.message });
     }
   }
-
-
-
-  static async getAllMscStudentsInFaculty(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { faculty, session } = req.params;
-      const userId = req.user?.id || '';
-
-      // Query params for pagination
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const sessionId = new Types.ObjectId(session);
-
-
-      const students = await StudentService.getAllMscStudentsInFaculty(
-        faculty,
-        userId,
-        sessionId,
-        page,
-        limit
-      );
-
-      res.status(200).json({ success: true, ...students });
-    } catch (err: any) {
-      console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to get MSC students in faculty',
-        message: err.message,
-      });
-    }
-  }
-
-
-  static async getAllPhdStudentsByDepartment(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { department, session } = req.params;
-      const userId = req.user?.id || '';
-
-      // Query params for pagination
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const sessionId = new Types.ObjectId(session);
-
-
-      const students = await StudentService.getAllPhdStudentsInDepartment(
-        department,
-        userId,
-        sessionId,
-        page,
-        limit
-      );
-
-      res.status(200).json({ success: true, ...students });
-    } catch (err: any) {
-      console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to PHD get students in department',
-        message: err.message,
-      });
-    }
-  }
-
-
-  static async getAllPhdStudentsInFaculty(req: AuthenticatedRequest, res: Response) {
-    try {
-      const { faculty, session } = req.params;
-      const userId = req.user?.id || '';
-
-      // Query params for pagination
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const sessionId = new Types.ObjectId(session);
-
-
-      const students = await StudentService.getAllPhdStudentsInFaculty(
-        faculty,
-        userId,
-        sessionId,
-        page,
-        limit
-      );
-
-      res.status(200).json({ success: true, ...students });
-    } catch (err: any) {
-      console.error(err);
-      res.status(400).json({
-        success: false,
-        error: 'Failed to get PHD students in faculty',
-        message: err.message,
-      });
-    }
-  }
-
 
   static async assignSupervisor(req: AuthenticatedRequest, res: Response) {
     try {
@@ -199,6 +121,7 @@ export default class StudentController {
       const { studentId } = req.params;
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const studentData = await StudentService.getOneStudent(studentId)
@@ -207,7 +130,7 @@ export default class StudentController {
         return
       }
       const assignedStudent = await StudentService.assignSupervisor(staffId, staffName, type, studentId)
-      await ActivityLogService.logActivity(userId, userName, role, 'assigned', `${type} supervisor ${staffName} to ${studentData.user.firstName} ${studentData.user.lastName} with Matric No: (${studentData.matricNo})`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'assigned', `${type} supervisor ${staffName} to ${studentData.user.firstName} ${studentData.user.lastName} with Matric No: (${studentData.matricNo})`, studentData.department, school);
       res.status(201).json({ success: true, data: assignedStudent });
     } catch (err: any) {
       console.log(err)
@@ -253,6 +176,7 @@ export default class StudentController {
       const userId = req.user?.id || ''
       console.log('userID', req.user)
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       console.log(user)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
@@ -262,7 +186,7 @@ export default class StudentController {
         res.status(404).json({ success: false, error: 'Student not found' });
         return
       }
-      await ActivityLogService.logActivity(userId, userName, role, 'updated', `${firstName} ${lastName} with Matric No: (${matricNo}) data`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'updated', `${firstName} ${lastName} with Matric No: (${matricNo}) data`, studentData.department, school);
       res.status(200).json({ success: true, data: updatedStudent });
     } catch (err: any) {
       console.error(err);
@@ -275,6 +199,7 @@ export default class StudentController {
       const { studentId } = req.params;
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const studentData = await StudentService.getOneStudent(studentId);
@@ -283,7 +208,7 @@ export default class StudentController {
         return 
       }
       const { deletedStudent, deletedUser } = await StudentService.deleteStudent(studentId);
-      await ActivityLogService.logActivity(userId, userName, role, 'deleted a student', `${studentData.user.firstName} ${studentData.user.lastName} with Matric No: (${studentData.matricNo})`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'deleted a student', `${studentData.user.firstName} ${studentData.user.lastName} with Matric No: (${studentData.matricNo})`, studentData.department, school);
       res.status(200).json({ success: true, data: deletedStudent, deletedUser });
     } catch (err: any) {
       console.error(err);
@@ -296,6 +221,7 @@ export default class StudentController {
       const { studentId, staffId } = req.params;
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const { updatedLecturer, updatedStudent } = await StudentService.assignCollegeRep(staffId, studentId)
@@ -304,7 +230,7 @@ export default class StudentController {
         res.status(404).json({ success: false, error: 'Student not found' });
         return 
       }
-      await ActivityLogService.logActivity(userId, userName, role, 'assigned', `college rep to ${studentData.user.firstName} ${studentData.user.lastName} with Matric No: (${studentData.matricNo})`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'assigned', `college rep to ${studentData.user.firstName} ${studentData.user.lastName} with Matric No: (${studentData.matricNo})`, studentData.department,school);
       res.status(200).json({ success: true, data: updatedStudent, updatedLecturer });
     } catch (err: any) {
       console.error(err);

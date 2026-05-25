@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useAuth } from "./AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -25,13 +25,14 @@ interface LecturerRecord {
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function AdminStaffManagement() {
-  const { token } = useAuth();
+  const { token } = useAuthStore();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"hod" | "provost" | "dean">("hod");
+  const [activeTab, setActiveTab] = useState<"hod" | "provost" | "dean" | "pg_admin">("hod");
 
   const [hods, setHods] = useState<LecturerRecord[]>([]);
   const [provosts, setProvosts] = useState<LecturerRecord[]>([]);
   const [deans, setDeans] = useState<LecturerRecord[]>([]);
+  const [pgAdmins, setPgAdmins] = useState<LecturerRecord[]>([]);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -52,54 +53,73 @@ export default function AdminStaffManagement() {
     if (!token) return;
     const load = async () => {
       try {
-        const [hodRes, provRes, deanRes] = await Promise.all([
+        const [hodRes, provRes, deanRes, pgRes] = await Promise.all([
           axios.get<{ data: any[] }>(`${baseUrl}/lecturer/get-hods`),
           axios.get<{ data: any[] }>(`${baseUrl}/lecturer/get-provost`),
           axios.get<{ data: any[] }>(`${baseUrl}/lecturer/get-dean`),
+          axios.get<{ data: any[] }>(`${baseUrl}/pg_admin/admin`),
         ]);
 
         // map HODs
         setHods(
-          (hodRes.data.data || []).map((raw: any) => ({
-            id: raw._id,
-            title: raw.user.title,
-            name: `${raw.user?.firstName ?? ""} ${
-              raw.user?.lastName ?? ""
-            }`.trim(),
-            email: raw.user?.email ?? "",
-            dept: raw.department ?? raw.departmentName ?? raw.department?.name,
-            faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
-          }))
+          (hodRes.data.data || []).map((raw: any) => {
+            const u = raw.user || {};
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+              dept: raw.department ?? raw.departmentName ?? raw.department?.name,
+              faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
+            };
+          })
         );
         console.log("HODs:", hods);
         console.log("Raw HODs:", hodRes.data.data);
 
         // map Provosts
         setProvosts(
-          (provRes.data.data || []).map((raw: any) => ({
-            id: raw._id,
-            title: raw.user.title,
-            name: `${raw.user?.firstName ?? ""} ${
-              raw.user?.lastName ?? ""
-            }`.trim(),
-            email: raw.user?.email ?? "",
-          }))
+          (provRes.data.data || []).map((raw: any) => {
+            const u = raw.user || {};
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+            };
+          })
         );
         console.log("Provosts:", provosts);
         console.log("Raw Provosts:", provRes.data.data);
         // map Deans
         setDeans(
-          (deanRes.data.data || []).map((raw: any) => ({
-            id: raw._id,
-            title: raw.user.title,
-            name: `${raw.user?.firstName ?? ""} ${
-              raw.user?.lastName ?? ""
-            }`.trim(),
-            email: raw.user?.email ?? "",
-            faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
-          }))
+          (deanRes.data.data || []).map((raw: any) => {
+            const u = raw.user || {};
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+              faculty: raw.faculty ?? raw.facultyName ?? raw.faculty?.name,
+            };
+          })
         );
         console.log("Deans:", deans);
+
+        // map PGAdmins
+        setPgAdmins(
+          (pgRes.data.data || []).map((raw: any) => {
+            // PG Admin API returns User objects directly, not Lecturer objects
+            const u = raw.user || raw;
+            return {
+              id: raw._id,
+              title: u.title || "",
+              name: `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+              email: u.email ?? "",
+            };
+          })
+        );
+        console.log("PGAdmins:", pgAdmins);
       } catch (err) {
         console.error(err);
         toast({
@@ -134,6 +154,7 @@ export default function AdminStaffManagement() {
       setHods((h) => h.filter((x) => x.id !== id));
       setProvosts((p) => p.filter((x) => x.id !== id));
       setDeans((d) => d.filter((x) => x.id !== id));
+      setPgAdmins((pg) => pg.filter((x) => x.id !== id));
 
       toast({ title: "Deleted", description: "Record removed." });
     } catch (err) {
@@ -230,6 +251,7 @@ export default function AdminStaffManagement() {
           <TabsTrigger value="hod">HODs</TabsTrigger>
           <TabsTrigger value="dean">Deans</TabsTrigger>
           <TabsTrigger value="provost">Provost</TabsTrigger>
+          <TabsTrigger value="pg_admin">PG Admin</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hod" className="pt-4">
@@ -242,6 +264,10 @@ export default function AdminStaffManagement() {
 
         <TabsContent value="provost" className="pt-4">
           {renderTable(provosts)}
+        </TabsContent>
+
+        <TabsContent value="pg_admin" className="pt-4">
+          {renderTable(pgAdmins)}
         </TabsContent>
       </Tabs>
 

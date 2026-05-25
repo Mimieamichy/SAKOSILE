@@ -29,11 +29,12 @@ export default class DefenceController {
     try {
       const userId = req.user?.id || '';
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
 
       const defence = await DefenceService.scheduleDefence(req.body);
-      await ActivityLogService.logActivity(userId, userName, role, "Scheduled",  `Defence for ${defence.program} for stage ${defence.stage}`, defence.department);
+      await ActivityLogService.logActivity(userId, userName, role, "Scheduled",  `Defence for ${defence.program} for stage ${defence.stage}`, defence.department, school);
       res.json({ success: true, data: defence });
     } catch (err: any) {
       res.status(400).json({ success: false, error: 'Failed to schedule defence', message: err.message });
@@ -44,14 +45,14 @@ export default class DefenceController {
   static async startDefence(req: AuthenticatedRequest, res: Response) {
     try {
       const { defenceId } = req.params;
-      console.log(defenceId)
       const userId = req.user?.id || '';
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       
       const defence = await DefenceService.startDefence(defenceId);
-      await ActivityLogService.logActivity(userId, userName, role, "Started",  `Defence for ${defence.program} for stage ${defence.stage}`, defence.department);
+      await ActivityLogService.logActivity(userId, userName, role, "Started",  `Defence for ${defence.program} for stage ${defence.stage}`, defence.department, school);
       res.json({ success: true, data: defence });
     } catch (err: any) {
       console.log(err)
@@ -66,6 +67,7 @@ export default class DefenceController {
       const { defenceId } = req.params;
       const userId = req.user?.id || '';
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
 
@@ -75,7 +77,7 @@ export default class DefenceController {
         return
       }
       const sheet = await DefenceService.submitScore(defenceId, panelMemberId,studentId,scores);
-      await ActivityLogService.logActivity(userId, userName, role, "Submitted Score for", `${studentData.user.firstName} ${studentData.user.lastName} with Matric No: ${studentData.matricNo} for defence`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, "Submitted Score for", `${studentData.user.firstName} ${studentData.user.lastName} with Matric No: ${studentData.matricNo} for defence`, studentData.department, school);
       res.json({ success: true, data: sheet });
     } catch (err: any) {
       res.status(400).json({success: false, error: 'Failed to submit score', message: err.message});
@@ -88,11 +90,12 @@ export default class DefenceController {
       const { defenceId } = req.params;
       const userId = req.user?.id || '';
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const defence = await DefenceService.endDefence(defenceId);
-      await ActivityLogService.logActivity(userId, userName, role, "Ended", "Defence", defence.department);
-      res.json({ success: true, data: defence });
+      await ActivityLogService.logActivity(userId, userName, role, "Ended", "Defence", defence.department, school);
+      res.json({ success: true, data: defence});
     } catch (err: any) {
       res.status(400).json({ success: false, error: 'Failed to end defence', message: err.message });
     }
@@ -105,6 +108,7 @@ export default class DefenceController {
       const { studentId } = req.params;
       const userId = req.user?.id || '';
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       
@@ -114,7 +118,7 @@ export default class DefenceController {
         return
       }
       const student = await DefenceService.approveStudentDefence(studentId);
-      await ActivityLogService.logActivity(userId, userName, role, "Approved",   `Defence for ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo}`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, "Approved",   `Defence for ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo}`, studentData.department, school);
       res.json({ success: true, data: student });
     } catch (err: any) {
       res.status(400).json({ success: false, error: 'Failed to approve defence for student', message: err.message });
@@ -128,6 +132,7 @@ export default class DefenceController {
       const { studentId } = req.params;
       const userId = req.user?.id || '';
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       
@@ -137,7 +142,7 @@ export default class DefenceController {
         return
       }
       const student = await DefenceService.rejectStudentDefence(studentId);
-      await ActivityLogService.logActivity(userId, userName, role, "Rejected", `Defence for ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo}`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, "Rejected", `Defence for ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo}`, studentData.department, school);
       res.json({ success: true, data: student });
     } catch (err: any) {
       res.status(400).json({ success: false, error: 'Failed to reject defence for student', message: err.message });

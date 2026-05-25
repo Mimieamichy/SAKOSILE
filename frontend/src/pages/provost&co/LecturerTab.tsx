@@ -10,7 +10,8 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 import { useToast } from "@/hooks/use-toast";
 
 interface Lecturer {
@@ -60,9 +61,9 @@ const titleOptions = [
 const baseRoleOptions: Option[] = [{ label: "Lecturer", value: "lecturer" }];
 
 export default function LecturerTab() {
-  const { token, user } = useAuth();
-  const isHod = user?.role?.toUpperCase() === "HOD";
-  const isProvost = user?.role?.toUpperCase() === "PROVOST";
+  const { token, user, hasRole } = useAuthStore();
+  const isHod = hasRole(Role.HOD);
+  const isProvost = hasRole(Role.PROVOST);
   const { toast } = useToast();
 
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
@@ -159,9 +160,9 @@ export default function LecturerTab() {
             email: r.user?.email ?? r.email ?? "",
             // try to read role from user.roles or r.role
             role:
-              (Array.isArray(r.user?.roles) && r.user.roles[0]) ??
-              r.role ??
-              "lecturer",
+              (Array.isArray(r.user?.roles) && r.user.roles.length > 0
+                ? r.user.roles[0]
+                : (r as any).role) ?? "lecturer",
           }))
         );
       }

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Menu, Bell, Lock, Power } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../AuthProvider";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
+import { useAuthStore } from "@/store/authStore";
 import { useNotificationStore } from "@/lib/notificationStore";
 import {
   Dialog,
@@ -11,28 +11,24 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import StudentDashboard from "./StudentDashboard";
-import UploadWorkPage from "./UploadWorkPage";
-import NotificationCenter from "../NotificationCenter";
 import UpdatePasswordModal from "../UpdatePasswordModal";
-
-export type StudentView = "dashboard" | "uploadWork" | "notifications";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 const StudentDashboardShell = () => {
-  const { user, logout, token } = useAuth();
+  const { user, logout, token } = useAuthStore();
   const userName = user?.userName || "Student";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const [currentView, setCurrentView] = useState<StudentView>("dashboard");
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const unreadCount = useNotificationStore((s) => s.unreadCount());
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
+  const notifications = useNotificationStore((s) => s.notifications);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Logout
   const handleLogout = () => {
@@ -53,24 +49,17 @@ const StudentDashboardShell = () => {
 
   useEffect(() => {
     if (token) {
-      fetchNotifications({ baseUrl, token });
+      const isInitialFetch = notifications.length === 0;
+      fetchNotifications({ baseUrl, token, silent: !isInitialFetch });
     }
   }, [token, fetchNotifications]);
 
-
-
-  const renderView = () => {
-    switch (currentView) {
-      case "dashboard":
-        return <StudentDashboard />;
-      case "uploadWork":
-        return <UploadWorkPage />;
-      case "notifications":
-        return <NotificationCenter />;
-      default:
-        return null;
-    }
-  };
+  const navItems = [
+    { label: "Student Overview", path: "/student/overview" },
+    { label: "Upload Work", path: "/student/upload-work" },
+    { label: "Notifications", path: "/student/notifications" },
+    { label: "Help", path: "/student/help" },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -81,7 +70,6 @@ const StudentDashboardShell = () => {
             className="w-6 h-6 text-gray-600 cursor-pointer"
             onClick={() => setIsMenuOpen((prev) => !prev)}
           />
-          
         </div>
 
         {/* Side menu */}
@@ -91,16 +79,14 @@ const StudentDashboardShell = () => {
             className="absolute top-16 left-4 bg-white shadow-lg rounded-lg p-4 w-5/6 max-w-xs z-30"
           >
             <ul className="space-y-3 text-gray-700 text-sm">
-              {[
-                { label: "Dashboard", key: "dashboard" },
-                { label: "Upload Work", key: "uploadWork" },
-                { label: "Notifications", key: "notifications" },
-              ].map((item) => (
+              {navItems.map((item) => (
                 <li
-                  key={item.key}
-                  className="cursor-pointer hover:text-amber-700"
+                  key={item.path}
+                  className={`cursor-pointer hover:text-amber-700 ${
+                    location.pathname === item.path ? "text-amber-700 font-bold" : ""
+                  }`}
                   onClick={() => {
-                    setCurrentView(item.key as StudentView);
+                    navigate(item.path);
                     setIsMenuOpen(false);
                   }}
                 >
@@ -116,13 +102,13 @@ const StudentDashboardShell = () => {
           <div className="relative">
             <Bell
               className="w-6 h-6 text-gray-600 cursor-pointer"
-              onClick={() => setCurrentView("notifications")}
+              onClick={() => navigate("/student/notifications")}
             />
             {unreadCount > 0 && (
               <span
                 className="absolute -top-1 cursor-pointer -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium leading-none text-white bg-amber-600 rounded-full"
                 aria-label={`${unreadCount} unread notifications`}
-                onClick={() => setCurrentView("notifications")}
+                onClick={() => navigate("/student/notifications")}
               >
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
@@ -140,7 +126,9 @@ const StudentDashboardShell = () => {
       </header>
 
       {/* Main content */}
-      <main className="container mx-auto px-4 py-6">{renderView()}</main>
+      <main className="container mx-auto px-4 py-6">
+        <Outlet />
+      </main>
 
       {/* Reset Password Modal */}
       <UpdatePasswordModal

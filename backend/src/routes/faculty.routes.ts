@@ -7,17 +7,9 @@ import { authenticate } from '../middlewares/auth';
 const router = Router();
 
 // Get all faculties
-router.get(
-  '/',
-  authenticate,
-  FacultyController.getAllDepartmentsForFaculty
-);
+router.get('/', authenticate, FacultyController.getAllDepartmentsForFaculty);
 
 // Get faculty by ID
-router.get(
-  '/:facultyId',
-  authenticate,
-  FacultyController.getFacultyById
-);
+router.get('/:facultyId', authenticate, FacultyController.getFacultyById);
 
 export default router;

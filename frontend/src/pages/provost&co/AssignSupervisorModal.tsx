@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -35,7 +35,7 @@ const AssignSupervisorModal: React.FC<AssignSupervisorModalProps> = ({
   onSubmit,
   studentId,
 }) => {
-  const { token } = useAuth();
+  const { token } = useAuthStore();
 
   const [supervisorType, setSupervisorType] = useState<
     "major" | "minor" | "internal_examiner"

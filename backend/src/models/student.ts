@@ -20,6 +20,7 @@ export interface IStudent extends Document {
   currentStage: string;
   department: string;
   faculty: string;
+  school: string;
   session: mongoose.Types.ObjectId;
   majorSupervisor?: mongoose.Types.ObjectId;
   minorSupervisor?: mongoose.Types.ObjectId;
@@ -57,6 +58,7 @@ const studentSchema = new Schema<IStudent>(
     currentStage: { type: String, default: 'start' },
     department: { type: String, required: true },
     faculty: { type: String, required: true },
+    school: { type: String, required: true },
     session: { type: Schema.Types.ObjectId, ref: 'Session', required: true },
     majorSupervisor: { type: Schema.Types.ObjectId, ref: 'Lecturer', default: null },
     minorSupervisor: { type: Schema.Types.ObjectId, ref: 'Lecturer', default: null },

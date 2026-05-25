@@ -15,13 +15,13 @@
     "skipLibCheck": true,                /* Skip type checking all .d.ts files. This is useful for large projects with many dependencies. */
 
     /* Module Resolution */
-    "moduleResolution": "node",          /* Specify how modules are resolved. */
-    "baseUrl": "./",                     /* Specify the base directory to resolve non-relative module names. */
+    "moduleResolution": "node",          /* Specify how modules are resolved.*/
+    "baseUrl": ".",                     /* Specify the base directory to resolve non-relative module names. */
     "paths": {                           /* Specify a set of entries that re-map imports to lookup locations relative to the 'baseUrl'. */
-      "*": ["node_modules/*"]
+      "*": ["*", "node_modules/*"]
     },
     "resolveJsonModule": true,           /* Enable importing .json files */
-    "allowJs": true,                     /* Allow JavaScript files to be compiled. */
+    "allowJs": true                     /* Allow JavaScript files to be compiled. */
   },
   "include": [
     "**/*.ts"                            /* Include all .ts files in the compilation. */

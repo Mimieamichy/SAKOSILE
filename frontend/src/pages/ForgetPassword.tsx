@@ -30,7 +30,7 @@ export default function ForgetPassword() {
         title: "Check your inbox",
         description: "If that email is registered, you’ll receive reset instructions.",
       });
-      navigate("/");
+      navigate("/signin");
     } catch (err) {
       console.error("Forget password request failed", err);
       toast({
@@ -80,7 +80,7 @@ export default function ForgetPassword() {
 
             <p className="text-center text-sm text-gray-500">
               Remembered?{" "}
-              <Link to="/" className="text-amber-700 hover:underline">
+              <Link to="/signin" className="text-amber-700 hover:underline">
                 Sign in
               </Link>
             </p>

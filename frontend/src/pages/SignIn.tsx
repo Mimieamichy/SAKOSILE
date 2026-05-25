@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "./AuthProvider";
+import { useAuthStore } from "../store/authStore";
 import { useToast } from "@/hooks/use-toast";
 
 const SignIn = () => {
@@ -15,7 +15,7 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, getHomePath } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -26,85 +26,19 @@ const SignIn = () => {
     }));
   };
 
-  // given a raw role value (array | json-string | comma-separated string | single string)
-  // return a normalized deduped array of lowercase role strings
-  function normalizeRoles(raw: any): string[] {
-    if (!raw && raw !== "") return [];
-    // if it's already an array
-    if (Array.isArray(raw)) {
-      return Array.from(new Set(raw.map((r) => String(r).trim().toLowerCase()).filter(Boolean)));
-    }
-
-    // if it's a string, try parsing JSON first (handles '["a","b"]')
-    if (typeof raw === "string") {
-      const str = raw.trim();
-      try {
-        const parsed = JSON.parse(str);
-        if (Array.isArray(parsed)) {
-          return Array.from(new Set(parsed.map((r) => String(r).trim().toLowerCase()).filter(Boolean)));
-        }
-      } catch {
-        // not JSON, fallthrough to comma split
-      }
-      // comma-separated (or single) string
-      return Array.from(new Set(str.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)));
-    }
-
-    // fallback: stringify and split
-    return Array.from(new Set(String(raw).split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)));
-  }
-
-  // Choose route based on priority order. First match wins.
-  function routeForRoles(roles: string[]) {
-    // priority-ordered checks (highest first)
-    const priorityMap: Array<{ keys: string[]; route: string }> = [
-      { keys: ["admin"], route: "/admin" },
-      { keys: ["dean"], route: "/dean" },
-      { keys: ["hod", "pgcord", "provost"], route: "/dashboard" },
-      // supervisor types should take precedence over faculty pg rep
-      { keys: ["supervisor", "major_supervisor", "college_rep","internal_examiner"], route: "/supervisor" },
-      { keys: ["student"], route: "/student" },
-      // roles that land on defense-day
-      { keys: ["external_examiner", "faculty_pg_rep", "panel_member", "lecturer"], route: "/defense-day" },
-      // fallback lecturer/general -> dashboard
-      
-    ];
-
-    for (const p of priorityMap) {
-      if (roles.some((r) => p.keys.includes(r))) return p.route;
-    }
-    return null;
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { user: loggedInUser } = await login(
-        formData.email,
-        formData.password
-      );
-
-      // normalize incoming roles (supports array | JSON string | comma-separated)
-      const roles = normalizeRoles(loggedInUser?.roles ?? loggedInUser?.roles ?? []);
-      const chosenRoute = routeForRoles(roles);
-
-      if (chosenRoute) {
-        navigate(chosenRoute);
-        return;
-      }
-
-      // if we couldn't determine a route, show the unknown role toast (keeps original behavior)
-      toast({
-        title: "Unknown Role",
-        description: `Cannot redirect—role "${JSON.stringify(loggedInUser?.role)}" not recognized.`,
-        variant: "destructive",
-      });
-    } catch (err: any) {
-      console.error("Login error:", err);
+      await login(formData.email, formData.password);
+      const chosenRoute = getHomePath();
+      navigate(chosenRoute);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Login error:", message);
       toast({
         title: "Login Failed",
-        description: err?.message ?? "Please check your email and password.",
+        description: message || "Please check your email and password.",
         variant: "destructive",
       });
     } finally {
@@ -126,9 +60,10 @@ const SignIn = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
         <div className="max-w-md w-full">
           <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            FULAFIA Electronic Tracking and Documentation System
+          <h1 className="text-6xl font-bold text-amber-700  mb-2">
+           SAKOSILE
           </h1>
+          <p className="text-gray-600">Electronic Tracking and Documentation System for Postgraduate Students</p> 
             <h1 className="text-4xl font-medium text-gray-800 mb-2">
               Sign In
             </h1>

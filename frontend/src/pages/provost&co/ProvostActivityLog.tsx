@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useAuth } from "@/pages/AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
 
 type ActivityType =
@@ -25,7 +25,10 @@ type ActivityType =
 type ActivityLog = {
   id: string;
   type: ActivityType;
-  actor: string;
+  actor: {
+    name: string;
+    email?: string;
+  };
   target: string;
   description: string;
   timestamp: string; // ISO
@@ -37,6 +40,7 @@ const typeIcons: Record<string, JSX.Element> = {
   SUPERVISOR_ASSIGNED: <UserCheck className="w-5 h-5 text-green-600" />,
   FILE_UPLOADED: <FileText className="w-5 h-5 text-purple-600" />,
   COMMENT_ADDED: <MessageSquareText className="w-5 h-5 text-gray-600" />,
+  STUDENT_ADDED: <UserCheck className="w-5 h-5 text-cyan-600" />,
 };
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL || "";
@@ -114,7 +118,7 @@ function buildSearchableString(raw: any): string {
 }
 
 const ProvostActivityLog: React.FC = () => {
-  const { token } = useAuth();
+  const { token } = useAuthStore();
   const { toast } = useToast();
 
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -133,17 +137,25 @@ const ProvostActivityLog: React.FC = () => {
       raw.id ?? raw._id ?? raw.logId ?? Math.random().toString(36).slice(2)
     );
     // type may be under `type`, `event`, `action`
-    const type = (raw.type ?? raw.eventType ?? raw.action ?? "UNKNOWN").toString();
-    // actor name may be under actorName, actor, user.name etc.
-    const actor =
-      raw.actorName ??
-      (raw.actor && typeof raw.actor === "string" ? raw.actor : undefined) ??
-      (raw.actor && raw.actor.name) ??
-      (raw.user && (raw.user.firstName || raw.user.lastName)
-        ? `${raw.user.firstName ?? ""} ${raw.user.lastName ?? ""}`.trim()
-        : undefined) ??
-      raw.by ??
-      "Unknown";
+    let type = (raw.type ?? raw.eventType ?? raw.action ?? "UNKNOWN").toString();
+    
+    // Heuristic: if message contains "added student", set type to STUDENT_ADDED
+    if (raw.message?.toLowerCase().includes("added student")) {
+      type = "STUDENT_ADDED";
+    }
+
+    // actor extraction
+    let actorObj = { name: "Unknown", email: "" };
+    if (raw.actor && typeof raw.actor === "object") {
+      actorObj = {
+        name: (raw.actor.name ?? `${raw.actor.firstName ?? ""} ${raw.actor.lastName ?? ""}`.trim()) || "Unknown",
+        email: raw.actor.email ?? ""
+      };
+    } else if (raw.actor && typeof raw.actor === "string") {
+      actorObj = { name: raw.actor, email: "" };
+    } else if (raw.actorName) {
+      actorObj = { name: raw.actorName, email: "" };
+    }
 
     const target =
       raw.targetName ??
@@ -152,12 +164,12 @@ const ProvostActivityLog: React.FC = () => {
       raw.entity ??
       "";
     const description = raw.description ?? raw.message ?? raw.note ?? raw.details ?? raw.text ?? raw.content ?? "";
-    const timestamp = raw.timestamp ?? raw.createdAt ?? raw.date ?? new Date().toISOString();
+    const timestamp = raw.time ?? raw.timestamp ?? raw.createdAt ?? raw.date ?? new Date().toISOString();
 
     return {
       id,
       type,
-      actor: String(actor),
+      actor: actorObj,
       target: String(target),
       description: String(description),
       timestamp: String(timestamp),
@@ -214,7 +226,7 @@ const ProvostActivityLog: React.FC = () => {
         else if (typeof payload === "object" && payload !== null) {
           // maybe the object itself is a single log
           arr = Object.values(payload).filter(
-            (v) => v && typeof v === "object" && (v.id || v._id || v.type)
+            (v: any) => v && typeof v === "object" && (v.id || v._id || v.type)
           );
           // fallback: if couldn't collect, treat payload as single
           if (arr.length === 0) arr = [payload];
@@ -248,7 +260,7 @@ const ProvostActivityLog: React.FC = () => {
           console.error("loadLogs error:", err);
           toast({
             title: "Error loading activity log",
-            description: err?.message ?? "See console for details",
+            description: err?.message ?? "Failed to load activity logs.",
             variant: "destructive",
           });
         }
@@ -272,7 +284,7 @@ const ProvostActivityLog: React.FC = () => {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">School-wide Activity Log</h2>
           <p className="text-gray-600 text-sm mt-1">
@@ -280,22 +292,22 @@ const ProvostActivityLog: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
           {/* Search input */}
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-initial">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, staff id, matric no, or content..."
+              placeholder="Search activity..."
               aria-label="Search activity logs"
-              className="pl-8 pr-8 py-1.5 rounded-md border bg-white text-sm w-72"
+              className="pl-9 pr-8 py-2 rounded-lg border bg-white text-sm w-full sm:w-72 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
             />
-            <Search className="absolute left-2 top-2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
             {search && (
               <button
                 onClick={() => setSearch("")}
                 aria-label="Clear search"
-                className="absolute right-1 top-1.5 p-1"
+                className="absolute right-2 top-2.5 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
                 title="Clear"
               >
                 <X className="w-4 h-4 text-gray-500" />
@@ -305,47 +317,65 @@ const ProvostActivityLog: React.FC = () => {
 
           <button
             onClick={() => void loadLogs(debouncedSearch || undefined)}
-            title="Refresh"
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white border hover:bg-amber-50"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700 transition-all disabled:opacity-50 shadow-sm"
             disabled={loading}
           >
-            <RefreshCw className="w-4 h-4" />
-            <span className="text-sm text-gray-600">{loading ? "Refreshing..." : "Refresh"}</span>
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="text-sm font-medium">{loading ? "Refreshing..." : "Refresh"}</span>
           </button>
         </div>
       </div>
 
       {logs.length === 0 ? (
-        <p className="text-center text-gray-400 py-10 italic">
-          {loading ? "Loading activity…" : search ? `No matches for “${search}”` : "No activity logged yet."}
-        </p>
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+          <Clock className="w-12 h-12 text-gray-300 mb-4" />
+          <p className="text-gray-500 font-medium">
+            {loading ? "Loading activity…" : search ? `No matches for “${search}”` : "No activity logged yet."}
+          </p>
+        </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden divide-y divide-gray-100">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
           {logs.map((log) => (
             <div
               key={log.id}
-              className="flex items-start gap-4 p-4 hover:bg-amber-50 transition"
+              className="flex flex-col sm:flex-row items-start gap-4 p-5 hover:bg-amber-50/50 transition-colors group"
             >
-              <div className="mt-1">
+              <div className="hidden sm:flex p-2.5 rounded-full bg-gray-50 group-hover:bg-white transition-colors">
                 {typeIcons[log.type] ?? <Clock className="w-5 h-5 text-gray-400" />}
               </div>
 
-              <div className="flex-1">
-                <div className="flex items-start justify-between gap-4">
-                  <p className="text-sm text-gray-800">
-                    <span className="font-medium text-amber-800">{log.actor}</span>{" "}
-                    performed an action{" "}
-                    <span className="font-medium">{log.target}</span>
-                  </p>
-
-                  <p className="text-xs text-gray-400">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="sm:hidden p-1.5 rounded-full bg-gray-50">
+                      {typeIcons[log.type] ?? <Clock className="w-4 h-4 text-gray-400" />}
+                    </div>
+                    <h4 className="text-sm font-semibold text-gray-900 truncate">
+                      {log.actor.name}
+                    </h4>
+                    {log.actor.email && (
+                      <span className="hidden lg:inline text-xs text-gray-400 font-normal">
+                        ({log.actor.email})
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" />
                     {log.timestamp ? formatDistanceToNow(new Date(log.timestamp), { addSuffix: true }) : ""}
-                  </p>
+                  </span>
                 </div>
 
-                {log.description ? (
-                  <p className="text-sm text-gray-600 mt-1">{log.description}</p>
-                ) : null}
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    {log.description}
+                  </p>
+                  {log.target && (
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-100/50 text-amber-800 text-[11px] font-medium">
+                      <UserCheck className="w-3 h-3" />
+                      Target: {log.target}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}

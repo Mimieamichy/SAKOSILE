@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/pages/AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 
 export interface NewHodData {
   title: string;
@@ -24,9 +24,9 @@ export interface NewHodData {
   lastName: string;
   staffId: string;
   email: string;
-  faculty: string; // will be the faculty NAME when submitting
-  department: string; // will be the department NAME when submitting
-  role: "hod" | "provost" | "dean";
+  faculty?: string; // Optional: will be the faculty NAME when submitting
+  department?: string; // Optional: will be the department NAME when submitting
+  role: "hod" | "provost" | "dean" | "pg_admin";
 }
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 interface AddHodModalProps {
@@ -52,7 +52,7 @@ export default function AddHodModal({
     email: "",
     faculty: "", // stores faculty ID for fetching departments
     department: "", // stores department ID
-    role: "hod" as "hod" | "provost" | "dean",
+    role: "hod" as "hod" | "provost" | "dean" | "pg_admin",
   });
 
   // New: store the selected names (used only for submission)
@@ -61,7 +61,7 @@ export default function AddHodModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const { token } = useAuthStore();
 
   // API lists + loading/errors
   const [faculties, setFaculties] = useState<Fac[]>([]);
@@ -221,8 +221,15 @@ export default function AddHodModal({
         "";
 
       // validate required fields
-      if (!facultyName || !departmentName) {
-        throw new Error("Please select both faculty and department.");
+      if (!formData.title) {
+        throw new Error("Please select a title.");
+      }
+
+      // faculty/dept not required for pg_admin
+      if (formData.role !== "pg_admin") {
+        if (!facultyName || !departmentName) {
+          throw new Error("Please select both faculty and department.");
+        }
       }
 
       const payload: NewHodData = {
@@ -232,10 +239,12 @@ export default function AddHodModal({
         staffId: formData.staffId,
         email: formData.email,
         role: formData.role,
-        // now include faculty & department for all roles
-        faculty: facultyName,
-        department: departmentName,
       };
+
+      if (formData.role !== "pg_admin") {
+        payload.faculty = facultyName;
+        payload.department = departmentName;
+      }
 
       await onSubmit(payload);
 
@@ -263,14 +272,20 @@ export default function AddHodModal({
 
   // Removed role-clearing effect so faculty/department remain available for all roles.
   const roleLabel =
-    formData.role === "hod" ? "HOD" : formData.role === "provost" ? "Provost" : "Dean";
+    formData.role === "hod"
+      ? "HOD"
+      : formData.role === "provost"
+      ? "Provost"
+      : formData.role === "dean"
+      ? "Dean"
+      : "PG Admin";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl bg-white max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold text-gray-800">
-            Add New HOD, Dean or Provost
+            Add New HOD, Dean, Provost or PG Admin
           </DialogTitle>
         </DialogHeader>
 
@@ -288,7 +303,6 @@ export default function AddHodModal({
               <Select
                 value={formData.title}
                 onValueChange={(val) => handleChange("title", val)}
-                required
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select Title" />
@@ -349,9 +363,8 @@ export default function AddHodModal({
             <Select
               value={formData.role}
               onValueChange={(val) =>
-                handleChange("role", val as "hod" | "dean" | "provost")
+                handleChange("role", val as "hod" | "dean" | "provost" | "pg_admin")
               }
-              required
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Role" />
@@ -360,69 +373,70 @@ export default function AddHodModal({
                 <SelectItem value="hod">HOD</SelectItem>
                 <SelectItem value="dean">Dean</SelectItem>
                 <SelectItem value="provost">Provost</SelectItem>
+                <SelectItem value="pg_admin">PG Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Faculty / Department - now required for ALL roles */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-gray-700 mb-1">Faculty</label>
-              <Select
-                value={formData.faculty || undefined}
-                onValueChange={(val) => {
-                  // set the ID for fetching depts
-                  handleChange("faculty", val);
-                  // also capture the human-friendly name for submission
-                  const f = faculties.find((x) => x.id === val);
-                  setSelectedFacultyName(f?.name ?? "");
-                  // clear selected dept when faculty changes
-                  setFormData((prev) => ({ ...prev, department: "" }));
-                  setSelectedDepartmentName("");
-                }}
-                required
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Faculty" />
-                </SelectTrigger>
-                <SelectContent>
-                  {faculties.map((fac) => (
-                    <SelectItem key={fac.id} value={fac.id}>
-                      {fac.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Faculty / Department - now required for ALL roles except PGAdmin */}
+          {formData.role !== "pg_admin" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 mb-1">Faculty</label>
+                <Select
+                  value={formData.faculty || undefined}
+                  onValueChange={(val) => {
+                    // set the ID for fetching depts
+                    handleChange("faculty", val);
+                    // also capture the human-friendly name for submission
+                    const f = faculties.find((x) => x.id === val);
+                    setSelectedFacultyName(f?.name ?? "");
+                    // clear selected dept when faculty changes
+                    setFormData((prev) => ({ ...prev, department: "" }));
+                    setSelectedDepartmentName("");
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Faculty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {faculties.map((fac) => (
+                      <SelectItem key={fac.id} value={fac.id}>
+                        {fac.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              {facError && <p className="text-sm text-red-500 mt-1">{facError}</p>}
+                {facError && <p className="text-sm text-red-500 mt-1">{facError}</p>}
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-1">Department</label>
+                <Select
+                  value={formData.department || undefined}
+                  onValueChange={(val) => {
+                    handleChange("department", val);
+                    const d = departments.find((x) => x.id === val);
+                    setSelectedDepartmentName(d?.name ?? "");
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {deptError && <p className="text-sm text-red-500 mt-1">{deptError}</p>}
+              </div>
             </div>
-
-            <div>
-              <label className="block text-gray-700 mb-1">Department</label>
-              <Select
-                value={formData.department || undefined}
-                onValueChange={(val) => {
-                  handleChange("department", val);
-                  const d = departments.find((x) => x.id === val);
-                  setSelectedDepartmentName(d?.name ?? "");
-                }}
-                required
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {deptError && <p className="text-sm text-red-500 mt-1">{deptError}</p>}
-            </div>
-          </div>
+          )}
 
           <DialogFooter className="flex justify-end gap-4 pt-4">
             <Button

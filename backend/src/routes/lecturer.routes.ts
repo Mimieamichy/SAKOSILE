@@ -57,7 +57,7 @@ router.post('/add-hod', authenticate, checkPermission(Permission.ADD_HOD), valid
 router.post('/add-external-examiner', authenticate, checkPermission(Permission.ADD_EXTERNAL_EXAMINER), LecturerController.addExternalExaminer);
 router.get('/get-external-examiner', authenticate, LecturerController.getExternlExaminer);
 router.post('/add-dean', authenticate, checkPermission(Permission.ADD_DEAN), validateBody(addDeanSchema), LecturerController.addDean);
-router.post('/add-provost', authenticate, checkPermission(Permission.ADD_PROVOST), validateBody(addLectuerSchema), LecturerController.addProvost);
+router.post('/add-provost', authenticate, checkPermission(Permission.ADD_PROVOST), validateBody(addDeanSchema), LecturerController.addProvost);
 router.get('/department', authenticate, checkPermission(Permission.VIEW_LECTURERS_BY_DEPARTMENT), LecturerController.getLecturerByDepartment);
 router.get('/faculty', authenticate, checkPermission(Permission.VIEW_FACULTY_LECTURERS), LecturerController.getLecturerByFaculty);
 router.post('/assign-faculty-rep/:staffId', authenticate, checkPermission(Permission.ASSIGN_FACULTY_REP), LecturerController.assignFacultyRep)

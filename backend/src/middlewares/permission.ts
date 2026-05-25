@@ -20,6 +20,7 @@ export interface AuthenticatedRequest extends Request {
 export function checkPermission(requiredPermission: Permission): RequestHandler {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userPermissions = req.user?.permissions || [];
+    
 
     console.log('Checking User permission:', userPermissions);
     if (!userPermissions.includes(requiredPermission)) {

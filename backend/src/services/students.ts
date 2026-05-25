@@ -1,8 +1,9 @@
-import { Student, User, Lecturer, Project } from "../models/index";
+import { Student, User, Lecturer, Project, StudentChecklist, ChecklistTemplate } from "../models/index";
 import { Role } from '../utils/permissions';
 import LecturerService from "../services/lecturer"
 import { paginateFormatted, findOneFormatted } from "../utils/paginatedAndTransform"
 import NotificationService from "./notification";
+import SchoolService from "./school";
 import mongoose, { Types } from "mongoose";
 
 
@@ -36,6 +37,7 @@ export default class StudentService {
         userId: string;
         session: string;
         projectTopic: string;
+        school: string;
     }) {
         // Step 1: Check if student with matricNo or email already exists
         const existingUser = await User.findOne({ email: data.email });
@@ -48,13 +50,16 @@ export default class StudentService {
             throw new Error('Student with this matric number already exists');
         }
 
+        const schoolId = await User.findById(data.userId).then(user => user?.schoolId);
+
         // Step 2: Create the user
         const user = await User.create({
             email: data.email,
             password: data.email, // You can hash this in a pre-save hook
             firstName: data.firstName,
             lastName: data.lastName,
-            roles: [Role.STUDENT, Role.GENERAL]
+            roles: [Role.STUDENT, Role.GENERAL],
+            schoolId,
         });
 
         // Step 3: Get departement and faculty from user
@@ -73,10 +78,13 @@ export default class StudentService {
             level: data.level,
             department,
             faculty,
+            school: data.school,
             session: data.session,
             projectTopic: data.projectTopic,
             stageScores: getDefaultStageScores(data.level)
         });
+
+        await SchoolService.incrementCount(data.school, 'students');
 
         return await student.save();
     }
@@ -85,9 +93,9 @@ export default class StudentService {
         return findOneFormatted(Student, studentId)
     }
 
-   static async getOneStudentByUser(userId: string) {
-  return Student.findOne({ user: new mongoose.Types.ObjectId(userId) })
-}
+    static async getOneStudentByUser(userId: string) {
+        return Student.findOne({ user: new mongoose.Types.ObjectId(userId) })
+    }
 
 
     static async editStudent(studentId: string, updateData: Partial<{
@@ -152,103 +160,21 @@ export default class StudentService {
         return { deletedUser, deletedStudent };
     }
 
-    static async getAllMscStudentsInDepartment(
-        department: string,
-        userId: string,
-        session: string | Types.ObjectId,
-        page = 1,
-        limit = 10
-    ) {
-
-
+    static async getStudents(level: 'msc' | 'phd', department: string, userId: string, session: Types.ObjectId, stage: string | undefined, page = 1, limit = 10) {
         if (!department || department.trim() === '') {
             const lecturer = await LecturerService.getLecturerById(userId);
-            // If lecturer not found, default to "none"
-            department = lecturer?.department ?? 'none';
-        }
-        const sessionId = session.toString()
-        const level = "msc"
-
-        // Use pagination 
-        return paginateFormatted(
-            Student,
-            page,
-            limit,
-            { department, level, session: sessionId });
-    }
-
-    static async getAllMscStudentsInFaculty(
-        faculty: string,
-        userId: string,
-        session: Types.ObjectId,
-        page = 1,
-        limit = 10
-    ) {
-        if (!faculty || faculty.trim() === '') {
-            const lecturer = await LecturerService.getLecturerById(userId);
-            // If lecturer not found, default to "none"
-            faculty = lecturer?.faculty ?? 'none';
-        }
-        const level = "msc"
-        const sessionId = session.toString()
-
-        // Use pagination 
-        return paginateFormatted(
-            Student,
-            page,
-            limit,
-            { faculty, level, session: sessionId }
-        );
-    }
-
-    static async getAllPhdStudentsInDepartment(
-        department: string,
-        userId: string,
-        session: Types.ObjectId,
-        page = 1,
-        limit = 10
-    ) {
-        if (!department || department.trim() === '') {
-            const lecturer = await LecturerService.getLecturerById(userId);
-            // If lecturer not found, default to "none"
             department = lecturer?.department ?? 'none';
         }
 
-        const level = "phd"
-        const sessionId = session.toString()
+        const sessionId = session.toString();
 
-        // Use pagination 
-        return paginateFormatted(
-            Student,
-            page,
-            limit,
-            { department, level, session: sessionId }
-        );
-    }
+        const filter: any = { department, level, session: sessionId };
 
-
-    static async getAllPhdStudentsInFaculty(
-        faculty: string,
-        userId: string,
-        session: Types.ObjectId,
-        page = 1,
-        limit = 10
-    ) {
-        if (!faculty || faculty.trim() === '') {
-            const lecturer = await LecturerService.getLecturerById(userId);
-            // If lecturer not found, default to "none"
-            faculty = lecturer?.faculty ?? 'none';
+        if (stage !== undefined) {
+            filter.stage = stage;
         }
-        const level = "phd"
-        const sessionId = session.toString()
 
-        // Use pagination 
-        return paginateFormatted(
-            Student,
-            page,
-            limit,
-            { faculty, level, session: sessionId }
-        );
+        return await paginateFormatted(Student, page, limit, filter);
     }
 
     static async getStudentsBySupervisorMsc(userId: string) {
@@ -486,5 +412,58 @@ export default class StudentService {
     return { updatedStudent, updatedLecturer };
 }
 
+
+    private static async attachChecklistStatus(students: any[], stage: string, level: 'msc' | 'phd'): Promise<any[]>{
+        if (!students.length) return students;
+    
+        // Check once whether a template exists for this school/level/stage
+        // (all students in a department share the same school)
+        const school = students[0]?.school;
+        const templateExists = school
+        ? !!(await ChecklistTemplate.findOne({ school, level, stage }).lean())
+        : false;
+    
+        if (!templateExists) {
+        // No template = no gate — mark everyone as clear
+        return students.map((s) => ({
+            ...s,
+            checklistExists:   false,
+            checklistComplete: true,
+            checklistApproved: true,
+            canStartDefence:   true,
+        }));
+        }
+    
+        // Bulk-fetch all checklists for these students + stage in one query
+        const studentIds = students.map((s) => s._id ?? s.id);
+        const checklists = await StudentChecklist.find({
+        student: { $in: studentIds },
+        stage,
+        })
+        .select('student allComplete approvedForNextStage')
+        .lean();
+    
+        // Map studentId → checklist
+        const checklistMap = new Map<string, any>();
+        for (const cl of checklists) {
+        checklistMap.set(cl.student.toString(), cl);
+        }
+    
+        return students.map((s) => {
+        const sid = (s._id ?? s.id).toString();
+        const cl  = checklistMap.get(sid);
+    
+        const checklistComplete = cl?.allComplete          ?? false;
+        const checklistApproved = cl?.approvedForNextStage ?? false;
+    
+        return {
+            ...s,
+            checklistExists:   true,
+            checklistComplete,
+            checklistApproved,
+            canStartDefence:   checklistApproved,
+        };
+        });
+    }
 
 }

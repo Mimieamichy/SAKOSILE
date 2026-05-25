@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import LecturerService from '../services/lecturer'
-import ActivityLogService from '../services/activity_log';
+
 
 
 export interface AuthenticatedRequest extends Request {
@@ -55,9 +55,9 @@ export default class LecturerController {
   static async addLecturer(req: AuthenticatedRequest, res: Response) {
     try {
       const { email, title, firstName, lastName, staffId, role } = req.body;
-       console.log(req.body)
       const userId = req.user?.id || ''
-      const lecturer = await LecturerService.addLecturer({ email, title, firstName, lastName, userId, staffId, role });
+      const school = req.user?.school || ''
+      const lecturer = await LecturerService.addLecturer({ email, title, firstName, lastName, userId, staffId, role, school });
       res.json({ success: true, data: lecturer });
     } catch (err: any) {
       console.log('Error adding Lecturer:', err);
@@ -70,7 +70,8 @@ export default class LecturerController {
     try {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
       const userId = req.user?.id || ''
-      const hod = await LecturerService.addHOD({ email, title, firstName, lastName, userId, staffId, role, department, faculty });
+      const school = req.user?.school || ''
+      const hod = await LecturerService.addHOD({ email, title, firstName, lastName, userId, staffId, role, department, faculty , school});
       res.json({ success: true, data: hod });
     } catch (err: any) {
       console.log('Error adding HOD:', err);
@@ -82,7 +83,8 @@ export default class LecturerController {
     try {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
       const userId = req.user?.id || ''
-      const dean = await LecturerService.addDean({ email, title, firstName, lastName, userId, staffId, role, department, faculty });
+      const school = req.user?.school || ''
+      const dean = await LecturerService.addDean({ email, title, firstName, lastName, userId, staffId, role, department, faculty , school});
       res.json({ success: true, data: dean });
     } catch (err: any) {
       console.log('Error adding Dean:', err);
@@ -94,7 +96,10 @@ export default class LecturerController {
   static async addProvost(req: AuthenticatedRequest, res: Response) {
     try {
       const { email, title, firstName, lastName, staffId, role, department, faculty } = req.body;
-      const provost = await LecturerService.addProvost({ email, title, firstName, lastName, staffId, department, faculty , role});
+      const userId = req.user?.id || ''
+      const school = req.user?.school || ''
+      console.log('WWWW', req.user)
+      const provost = await LecturerService.addProvost({ email, title, firstName, lastName, staffId, department, faculty , role, userId, school});
       res.json({ success: true, data: provost });
     } catch (err: any) {
       console.log('Error adding Provost:', err);
@@ -106,7 +111,9 @@ export default class LecturerController {
   static async addExternalExaminer(req: AuthenticatedRequest, res: Response) {
     try {
       const { email, title, firstName, lastName, department, role } = req.body;
-      const external_examiner = await LecturerService.addExternalExaminer({ email, title, firstName, lastName, department, role });
+      const userId = req.user?.id || ''
+      const school = req.user?.school || ''
+      const external_examiner = await LecturerService.addExternalExaminer({ email, title, firstName, lastName, department, role, userId , school});
       res.json({ success: true, data: external_examiner });
     } catch (err: any) {
       console.log('Error adding external_examiner:', err);

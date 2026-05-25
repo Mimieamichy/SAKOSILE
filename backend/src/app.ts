@@ -6,6 +6,9 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import cron from 'node-cron';
+import morgan from 'morgan'
+
+
 
 
 dotenv.config();
@@ -22,6 +25,13 @@ import facultyRoutes from './routes/faculty.routes';
 import defenceRoutes from './routes/defence.routes';
 import scoreSheetRoute from './routes/scoresheet.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import institutionRoutes from './routes/institutions.routes';
+import schoolRoutes from './routes/school.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import pgadminRoutes from './routes/pg_admin.routes';
+import checklistRoutes from './routes/checklist.routes';
+import readinessFormRoutes from './routes/readinessForm.routes';
+import templateRoutes from './routes/template.routes';
 
 
 import ProjectService from './services/project';
@@ -30,6 +40,7 @@ const app = express();
 
 //Security Middlewares
 app.use(helmet()); // sets secure HTTP headers
+app.use(morgan('dev'))
 
 // app.use(cors({
 //   origin: process.env.FRONTEND_URL, // restrict to frontend domain in prod
@@ -68,7 +79,7 @@ app.use('/api/auth', limiter);
 const getProjectRoot = () => {
   if (process.env.NODE_ENV === 'production') {
     // Match your multer config - go up 4 levels from dist/src
-    return path.join(__dirname, '..', '..', '..');
+    return path.join(__dirname, '..', '..', '..');2
   }
   return process.cwd();
 };
@@ -98,6 +109,13 @@ app.use("/api/faculty", facultyRoutes);
 app.use('/api/defence', defenceRoutes);
 app.use('/api/defence', scoreSheetRoute);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/institution', institutionRoutes)
+app.use('/api/school', schoolRoutes)
+app.use('/api/analytics', analyticsRoutes)
+app.use('/api/pg_admin', pgadminRoutes)
+app.use('/api/checklist', checklistRoutes)
+app.use('/api/readiness', readinessFormRoutes)
+app.use('/api', templateRoutes)
 
 //Global error handler (avoid exposing stack traces in prod)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

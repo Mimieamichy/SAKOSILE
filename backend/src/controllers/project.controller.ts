@@ -37,6 +37,7 @@ export default class ProjectController {
       }
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const student = await StudentService.getOneStudentByUser(userId)
@@ -51,7 +52,7 @@ export default class ProjectController {
       }
       
       const project = await ProjectService.uploadProject(userId, fileUrl);
-      await ActivityLogService.logActivity(userId, userName, role, 'Uploaded', 'a new Project version', studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'Uploaded', 'a new Project version', studentData.department, school);
       res.status(201).json({ success: true, message: 'Project uploaded successfully', data: project });
     } catch (err: any) {
       console.log(err)
@@ -65,6 +66,7 @@ export default class ProjectController {
       const { text } = req.body;
       const author = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(author)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
 
@@ -79,7 +81,7 @@ export default class ProjectController {
         res.status(404).json({ success: false, error: 'Student not found' });
         return 
       }
-      await ActivityLogService.logActivity(author, userName, role, 'Commented on', `${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} Project version ${versionNumber}`, studentData.department);
+      await ActivityLogService.logActivity(author, userName, role, 'Commented on', `${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} Project version ${versionNumber}`, studentData.department, school);
       res.status(200).json({ success: true, message: 'Comment added', data: updatedProject });
     } catch (err: any) {
       console.log(err)
@@ -104,6 +106,7 @@ export default class ProjectController {
       const { studentId, versionNumber } = req.params;
       const author = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(author)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const studentData = await StudentService.getOneStudent(studentId);
@@ -126,7 +129,7 @@ export default class ProjectController {
       res.status(404).json({ success: false, error: 'File not found on server' });
       return;
     }
-      await ActivityLogService.logActivity(author, userName, role, 'downloaded project', `of ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} Project version number ${versionNumber}`, studentData.department);
+      await ActivityLogService.logActivity(author, userName, role, 'downloaded project', `of ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} Project version number ${versionNumber}`, studentData.department, school);
       return res.download(absolutePath);
     } catch (err: any) {
       console.log(err)
@@ -139,6 +142,7 @@ export default class ProjectController {
       const { studentId } = req.params;
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
 
@@ -164,7 +168,7 @@ export default class ProjectController {
       res.status(404).json({ success: false, error: 'File not found on server' });
       return;
     }
-      await ActivityLogService.logActivity(userId, userName, role, 'Downloaded', `Latest Project version of ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo}`, studentData.department)
+      await ActivityLogService.logActivity(userId, userName, role, 'Downloaded', `Latest Project version of ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo}`, studentData.department, school)
       return res.download(absolutePath)
     } catch (err: any) {
       console.log(err)
@@ -191,6 +195,7 @@ export default class ProjectController {
       const userId = req.user?.id || ''
       const { studentId } = req.params;
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const student = await StudentService.getOneStudent(studentId)
@@ -203,7 +208,7 @@ export default class ProjectController {
         res.status(404).json({ success: false, error: 'Student not found' });
         return 
       }
-      await ActivityLogService.logActivity(userId, userName, role, 'Uploaded', `a corrected project for ${studentData.user.firstName} ${studentData.user.firstName} with matric No ${studentData.matricNo} `, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'Uploaded', `a corrected project for ${studentData.user.firstName} ${studentData.user.firstName} with matric No ${studentData.matricNo} `, studentData.department, school);
 
       const project = await ProjectService.supervisorUploadCorrection(
         studentId,
@@ -222,6 +227,7 @@ export default class ProjectController {
       const { studentId } = req.params;
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const studentData = await StudentService.getOneStudent(studentId);
@@ -230,7 +236,7 @@ export default class ProjectController {
         return 
       }
       const project = await ProjectService.approveProject(studentId);
-      await ActivityLogService.logActivity(userId, userName, role, 'Approved', `Project of ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} for defence`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'Approved', `Project of ${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} for defence`, studentData.department, school);
       res.status(200).json({ success: true, message: 'Project approved successfully', data: project });
     } catch (err: any) {
       console.log(err)
@@ -256,6 +262,7 @@ export default class ProjectController {
       const author = req.user?.id || ''
       const userId = req.user?.id || ''
       const role = req.user?.role[0] || ''
+      const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const studentData = await StudentService.getOneStudent(studentId);
@@ -270,7 +277,7 @@ export default class ProjectController {
         author,
         text
       );
-      await ActivityLogService.logActivity(userId, userName, role, 'Commented on', `${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} project on Defence day`, studentData.department);
+      await ActivityLogService.logActivity(userId, userName, role, 'Commented on', `${studentData.user.firstName} ${studentData.user.lastName} with matric No: ${studentData.matricNo} project on Defence day`, studentData.department, school);
       res.status(200).json({ success: true, message: 'Comment added', data: comments });
     } catch (err: any) {
       console.log(err)

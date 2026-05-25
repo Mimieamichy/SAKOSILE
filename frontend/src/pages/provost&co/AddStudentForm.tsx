@@ -8,8 +8,9 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "../AuthProvider";
+import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/hooks/use-toast";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 interface AddStudentFormProps {
   onClose?: () => void;
@@ -20,33 +21,52 @@ const degreeOptions = ["MSc", "PhD"];
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
+  type SimpleSession = {
+    _id: string;
+    sessionName?: string;
+    department?: string;
+    isActive?: boolean;
+    startDate?: string | Date;
+  };
   const [degree, setDegree] = useState<"MSc" | "PhD">("MSc");
   const [matNo, setMatNo] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [session, setSession] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [sessionName, setSessionName] = useState("");
   const [projectTopic, setProjectTopic] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { token } = useAuth(); // 🔐 Get token from auth context
+  const { token, user } = useAuthStore();
   const { toast } = useToast();
 
 
   useEffect(() => {
     const fetchLatestSession = async () => {
       try {
-        const token = localStorage.getItem("token");
         const response = await fetch(`${baseUrl}/session/sessions`, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
           },
         });
 
-        const result = await response.json();
-        const sessions = Array.isArray(result) ? result : result?.data || [];
+        if (!response.ok) {
+          return;
+        }
+
+        const result = await response.json().catch(() => null);
+        console.log("GET /session/sessions response:", result);
+        const raw = (Array.isArray(result) ? result : result?.data || []) as SimpleSession[];
+
+        const dept = (user?.department || "").trim().toLowerCase();
+        const byDept = dept
+          ? raw.filter((s) => (s?.department || "").trim().toLowerCase() === dept)
+          : raw;
+        const base = byDept.length > 0 ? byDept : raw;
+        const active = base.filter((s) => s?.isActive === true);
+        const sessions = active.length > 0 ? active : base;
 
         const sorted = [...sessions].sort(
           (a, b) =>
@@ -55,27 +75,35 @@ const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
 
         const latest = sorted[0];
         if (latest) {
-          setSessionId(latest._id); // for backend
-          setSessionName(latest.sessionName); // for display
+          setSessionId(latest._id);
+          setSessionName(latest.sessionName);
         }
-        console.log("Latest session fetched:", latest);
-        
       } catch (error) {
-        console.error("Error fetching latest session:", error);
+        // ignore
       }
     };
 
     fetchLatestSession();
-  }, []);
+  }, [token, user?.department]);
 
   const handleSubmit = async () => {
+    if (!sessionId) {
+      toast({
+        title: "No session",
+        description: "No active session found for your department. Create a session first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     const payload = {
       email,
       firstName,
       lastName,
       matNo,
       degree: degree.toLowerCase(),
-      session: sessionId, // 👈 ObjectId goes to backend
+      session: sessionId,
       projectTopic,
     };
 
@@ -84,7 +112,7 @@ const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // 🔐 include if required
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(payload),
       });
@@ -94,7 +122,6 @@ const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
       }
 
       const result = await response.json();
-      console.log("Student added:", result);
       toast({
         title: "Success",
         description: `Student ${firstName} ${lastName} added successfully!`,
@@ -107,12 +134,17 @@ const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
       setLastName("");
       setEmail("");
 
-      setSession("");
       setProjectTopic("");
 
       if (onClose) onClose();
     } catch (error) {
-      console.error("Submission error:", error);
+      toast({
+        title: "Failed",
+        description: "Could not add student. Check details and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -194,7 +226,7 @@ const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
       {/* Latest Session */}
       <div className="mb-5">
         <p className="text-sm text-gray-700 mb-4">
-          Current Session: <strong>{sessionName}</strong>
+          Current Session: <strong>{sessionName || "None"}</strong>
         </p>
       </div>
 
@@ -212,8 +244,16 @@ const AddStudentForm: React.FC<AddStudentFormProps> = ({ onClose }) => {
         <Button
           className="w-full sm:w-auto bg-amber-700 hover:bg-amber-800 text-white"
           onClick={handleSubmit}
+          disabled={!sessionId || isSubmitting}
         >
-          Add Student
+          {isSubmitting ? (
+            <span className="flex items-center gap-2">
+              <LoadingSpinner size="sm" text="" />
+              Adding...
+            </span>
+          ) : (
+            "Add Student"
+          )}
         </Button>
       </div>
     </div>

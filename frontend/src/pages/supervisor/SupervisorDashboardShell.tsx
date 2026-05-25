@@ -1,9 +1,9 @@
-// src/SupervisorDashboardShell.tsx
 import { useState, useRef, useEffect } from "react";
 import { Menu, Bell, Lock, Power } from "lucide-react";
 import { useNotificationStore } from "@/lib/notificationStore";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../AuthProvider";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
+import { useAuthStore } from "@/store/authStore";
+import { Role } from "@/config/roles";
 import {
   Dialog,
   DialogContent,
@@ -12,34 +12,24 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import SupervisorDashboard from "./SupervisorDashboard";
-import MyStudentsPage from "./MyStudentsPage";
-import NotificationCenter from "../NotificationCenter";
-import DefenseDayPage from "../DefenseDayPage";
 import UpdatePasswordModal from "../UpdatePasswordModal";
-
-export type SupervisorView =
-  | "dashboard"
-  | "myStudents"
-  | "defenseDay"
-  | "notifications";
 
 const baseUrl = import.meta.env.VITE_BACKEND_URL;
 
 export default function SupervisorDashboardShell() {
-  const { user, logout, token } = useAuth();
+  const { user, logout, token } = useAuthStore();
 
-  const role = user?.role || "User";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const [currentView, setCurrentView] = useState<SupervisorView>("dashboard");
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const unreadCount = useNotificationStore((s) => s.unreadCount());
   const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
+  const notifications = useNotificationStore((s) => s.notifications);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -53,31 +43,22 @@ export default function SupervisorDashboardShell() {
 
   useEffect(() => {
     if (token) {
-      fetchNotifications({ baseUrl, token });
+      const isInitialFetch = notifications.length === 0;
+      fetchNotifications({ baseUrl, token, silent: !isInitialFetch });
     }
   }, [token, fetchNotifications]);
 
-  
-
-  const renderView = () => {
-    switch (currentView) {
-      case "dashboard":
-        return <SupervisorDashboard />;
-      case "myStudents":
-        return <MyStudentsPage />;
-      case "defenseDay":
-        return <DefenseDayPage />;
-      case "notifications":
-        return <NotificationCenter />;
-      default:
-        return null;
-    }
-  };
-  // Logout
   const handleLogout = () => {
     logout();
     navigate("/");
   };
+
+  const navItems = [
+    { label: "Supervisor Overview", path: "/supervisor/overview", show: true },
+    { label: "My Students", path: "/supervisor/my-students", show: true },
+    { label: "Defense Page", path: "/supervisor/defense-day", show: true },
+    { label: "Notifications", path: "/supervisor/notifications", show: true },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -98,42 +79,20 @@ export default function SupervisorDashboardShell() {
             className="absolute top-16 left-4 bg-white shadow-lg rounded-lg p-4 w-56 z-20"
           >
             <ul className="space-y-2 text-gray-700">
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("dashboard");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Dashboard
-              </li>
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("myStudents");
-                  setIsMenuOpen(false);
-                }}
-              >
-                My Students
-              </li>
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("defenseDay");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Defense Page
-              </li>
-              <li
-                className="cursor-pointer hover:text-amber-700"
-                onClick={() => {
-                  setCurrentView("notifications");
-                  setIsMenuOpen(false);
-                }}
-              >
-                Notifications
-              </li>
+              {navItems.map((item) => item.show && (
+                <li
+                  key={item.path}
+                  className={`cursor-pointer hover:text-amber-700 ${
+                    location.pathname === item.path ? "text-amber-700 font-bold" : ""
+                  }`}
+                  onClick={() => {
+                    navigate(item.path);
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  {item.label}
+                </li>
+              ))}
             </ul>
           </div>
         )}
@@ -146,13 +105,13 @@ export default function SupervisorDashboardShell() {
           <div className="relative">
             <Bell
               className="w-6 h-6 text-gray-600 cursor-pointer"
-              onClick={() => setCurrentView("notifications")}
+              onClick={() => navigate("/supervisor/notifications")}
             />
             {unreadCount > 0 && (
               <span
                 className="absolute -top-1 cursor-pointer -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium leading-none text-white bg-amber-600 rounded-full"
                 aria-label={`${unreadCount} unread notifications`}
-                onClick={() => setCurrentView("notifications")}
+                onClick={() => navigate("/supervisor/notifications")}
               >
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
@@ -171,7 +130,7 @@ export default function SupervisorDashboardShell() {
 
       {/* Main Content */}
       <main className="container max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {renderView()}
+        <Outlet />
       </main>
 
       {/* Reset Password Modal */}

@@ -5,6 +5,7 @@ export interface ILecturer extends Document {
   staffId: string;
   department?: string;
   faculty?: string;
+  school?: string;
 }
 
 const lecturerSchema = new Schema<ILecturer>({
@@ -12,6 +13,7 @@ const lecturerSchema = new Schema<ILecturer>({
   staffId: { type: String, required: true},
   department: { type: String, required: false },
   faculty: { type: String, required: false },
+  school: { type: String, required: false },
 }, { timestamps: true });
 
 export default mongoose.model<ILecturer>('Lecturer', lecturerSchema);

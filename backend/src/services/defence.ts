@@ -1,9 +1,11 @@
-import { Defence, Student, Project, ScoreSheet, Lecturer, GeneralScoreSheet, User } from '../models/index';
+import { Defence, Student, Project, ScoreSheet, Lecturer, GeneralScoreSheet, User, StudentChecklist, ChecklistTemplate } from '../models/index';
+import ChecklistService from './checklist';
 import { Types } from 'mongoose';
 import NotificationService from "../services/notification";
 import { STAGES } from "../utils/constants";
 import { IStageScores } from '../models/student';
 import { Role } from '../utils/permissions';
+import ReadinessFormService from './readinessForm';
 
 
 
@@ -11,25 +13,25 @@ export default class DefenceService {
 
     // Helper method to check if lecturer has any active defences
   static async hasActiveDefences(lecturerId: string | Types.ObjectId) {
-  const lecturer = await Lecturer.findById(lecturerId).populate("user");
-  if (!lecturer) throw new Error("Lecturer not found");
+    const lecturer = await Lecturer.findById(lecturerId).populate("user");
+    if (!lecturer) throw new Error("Lecturer not found");
 
-  const userRoles = (lecturer.user as any)?.roles || [];
- 
-  const isHodOrProvost =
-    Array.isArray(userRoles) &&
-    (userRoles.includes("hod") || userRoles.includes("provost"));
+    const userRoles = (lecturer.user as any)?.roles || [];
+  
+    const isHodOrProvost =
+      Array.isArray(userRoles) &&
+      (userRoles.includes("hod") || userRoles.includes("provost"));
 
-  // Base query: all defences the lecturer is part of
-  const query: any = { panelMembers: lecturerId };
+    // Base query: all defences the lecturer is part of
+    const query: any = { panelMembers: lecturerId };
 
-  // For non-HOD/Provost, only consider ongoing defences
-  if (!isHodOrProvost) {
-    query.ended = false;
-  }
+    // For non-HOD/Provost, only consider ongoing defences
+    if (!isHodOrProvost) {
+      query.ended = false;
+    }
 
-  // Fetch defences with students
-  const defences = await Defence.find(query).populate("students");
+    // Fetch defences with students
+    const defences = await Defence.find(query).populate("students");
 
   if (isHodOrProvost) {
     // Filter defences that still have at least one unmarked student
@@ -46,8 +48,8 @@ export default class DefenceService {
 
   
 
-  return defences.length > 0;
-}
+    return defences.length > 0;
+  }
   /** Get all defences with student details
   */
   static async getAllDefenses() {
@@ -76,11 +78,12 @@ export default class DefenceService {
     // );
 
     // 1. Fetch students and their projects 
-    const students = await Student.find({ _id: { $in: studentIds } }).lean();
+     const students = await Student.find({ _id: { $in: studentIds } }).populate('user').lean();
 
     if (students.length === 0) {
       throw new Error("No students found for the provided IDs.");
     }
+
 
     // 2. Collect all associated lecturers IDs from student documents
     const allStudentLecturers: Set<Types.ObjectId | string> = new Set();
@@ -464,11 +467,9 @@ export default class DefenceService {
     const sheet = await ScoreSheet.findOne({ department: defence.department });
     if (!sheet) throw new Error("ScoreSheet not found for this department");
 
-    // Filter entries for this specific defence
-    const defenceEntries = sheet.entries.filter(entry =>
-      entry.defence.toString() == defenceId
+    const defenceEntries = sheet.entries.filter(
+      (entry) => entry.defence.toString() === defenceId
     );
-
     if (defenceEntries.length === 0) {
       throw new Error("No score entries found for this defence");
     }
@@ -477,21 +478,18 @@ export default class DefenceService {
     const studentTotalScores: Record<string, number[]> = {};
 
     for (const entry of defenceEntries) {
-      // Calculate total score for this entry (sum of all criteria scores)
       const totalScore = entry.scores.reduce((sum, s) => sum + s.score, 0);
+      const studentId  = entry.student.toString();
 
-      const studentId = entry.student.toString();
-      if (!studentTotalScores[studentId]) {
-        studentTotalScores[studentId] = [];
-      }
+      if (!studentTotalScores[studentId]) studentTotalScores[studentId] = [];
       studentTotalScores[studentId].push(totalScore);
     }
 
-    // === Calculate average total score for each student ===
+    // === Calculate average total score per student ===
     const studentAverages: Record<string, number> = {};
 
     for (const [studentId, totalScores] of Object.entries(studentTotalScores)) {
-      const average = totalScores.reduce((sum, score) => sum + score, 0) / totalScores.length;
+      const average = totalScores.reduce((sum, s) => sum + s, 0) / totalScores.length;
       studentAverages[studentId] = Number(average.toFixed(2));
     }
 
@@ -503,13 +501,20 @@ export default class DefenceService {
     };
 
     const PHD_STAGE_MAP: Record<string, keyof IStageScores> = {
-      [STAGES.PHD.PROPOSAL_DEFENSE]: "proposalDefenceScore",
-      [STAGES.PHD.SECOND_SEMINAR]: "secondSeminarScore",
-      [STAGES.PHD.THIRD_SEMINAR]: "thirdSeminarScore",
-      [STAGES.PHD.EXTERNAL_DEFENCE]: "externalDefenseScore",
+      [STAGES.PHD.PROPOSAL_DEFENSE]:  "proposalDefenceScore",
+      [STAGES.PHD.SECOND_SEMINAR]:    "secondSeminarScore",
+      [STAGES.PHD.THIRD_SEMINAR]:     "thirdSeminarScore",
+      [STAGES.PHD.EXTERNAL_DEFENCE]:  "externalDefenseScore",
     };
 
-    // === Update student.stageScores ===
+    // === Determine the NEXT stage this defence unlocks ===
+    // we assign the checklist for the stage they are just finishing — which is defence.stage
+    // (the stage they just completed now becomes the stage whose checklist
+    //  gates is created 
+    const completedStage = defence.stage;
+    const level     = defence.program.toLowerCase() as 'msc' | 'phd';
+
+    // === Per-student: save score + assign checklist ===
     for (const studentId of defence.students) {
       const studentIdStr = studentId.toString();
       const averageScore = studentAverages[studentIdStr] || 0;
@@ -517,6 +522,7 @@ export default class DefenceService {
       const student = await Student.findById(studentId);
       if (!student) continue;
 
+      // Save stage score
       let key: keyof IStageScores;
 
       if (defence.program === "MSC") {
@@ -532,8 +538,46 @@ export default class DefenceService {
       student.stageScores[key] = averageScore;
       await student.save();
 
+      // === Assign checklist for this stage if a template exists ===
+      try {
+        const templateExists = await ChecklistTemplate.findOne({
+          school: student.school,
+          level,
+          stage: completedStage,
+        });
+        if (templateExists) {
+          await ChecklistService.createStudentChecklist(studentIdStr, completedStage, level);
+          console.log(`Checklist has been assigned to student ${studentIdStr} for stage ${completedStage}`);
+        } else {
+          console.log(`No checklist template for ${level} – ${completedStage}, skipping assignment`);
+        }
+      } catch (checklistErr: any) {
+        console.error(
+          `Failed to assign checklist to student ${studentIdStr} for stage ${completedStage}:`,
+          checklistErr.message
+        );
+      }
+
+
+      // === Assign readiness form for this stage if a template exists ===
+      try {
+        await ReadinessFormService.assignReadinessForm(
+          studentIdStr,
+          completedStage,
+          level
+        );
+        console.log(`Readiness form assigned to student ${studentIdStr} for stage ${completedStage}`);
+      } catch (readinessErr: any) {
+        // Never block the defence from ending due to a readiness form error
+        console.error(
+          `Failed to assign readiness form to student ${studentIdStr} for stage ${completedStage}:`,
+          readinessErr.message
+        );
+      }
+
+
       // === Notify student ===
-      const message = `Your defence for stage ${defence.stage} has ended, Check your Dashboard for panel members comments.`;
+      const message = `Your defence for stage ${defence.stage} has ended. Check your Dashboard for panel members' comments.`;
       await NotificationService.createNotifications({
         studentIds: [studentId],
         role: "student",
@@ -545,13 +589,12 @@ export default class DefenceService {
     defence.ended = true;
     await defence.save();
 
-    // === Check and remove PANEL_MEMBER role if no other active defences ===
+    // === Remove PANEL_MEMBER role if no other active defences ===
     for (const panelMemberId of defence.panelMembers) {
       const hasActiveDefences = await this.hasActiveDefences(panelMemberId);
 
       if (!hasActiveDefences) {
-        // Remove PANEL_MEMBER role
-        const lecturer = await Lecturer.findById(panelMemberId).populate('user');
+        const lecturer = await Lecturer.findById(panelMemberId).populate("user");
         if (lecturer && lecturer.user) {
           (lecturer.user as any).roles = (lecturer.user as any).roles.filter(
             (role: string) => role !== Role.PANEL_MEMBER
@@ -566,9 +609,7 @@ export default class DefenceService {
   }
 
 
-
-
-  /**Finds students and move student to next stage in the proram type  */
+  /**Finds students and move student to next stage in the program type  */
   static async approveStudentDefence(studentId: string) {
     const student = await Student.findById(studentId);
     if (!student) throw new Error("Student not found");
@@ -576,68 +617,30 @@ export default class DefenceService {
     const defence = await Defence.findOne({ students: studentId, ended: true });
     if (!defence) throw new Error("No ended defence found for this student");
 
-    // const stage = defence.stage;
-    // const program = defence.program;
-
-    // if (program === "MSC") {
-    //   switch (stage) {
-    //     case STAGES.MSC.PROPOSAL:
-    //       student.currentStage = STAGES.MSC.INTERNAL;
-    //       break;
-    //     case STAGES.MSC.INTERNAL:
-    //       student.currentStage = STAGES.MSC.EXTERNAL;
-    //       break;
-    //     case STAGES.MSC.EXTERNAL:
-    //       student.currentStage = STAGES.MSC.COMPLETED;
-    //       break;
-    //     default:
-    //       throw new Error(`Invalid stage for MSC student: ${stage}`);
-    //   }
-    // } else if (program === "PHD") {
-    //   switch (stage) {
-    //     case STAGES.PHD.PROPOSAL_DEFENSE:
-    //       student.currentStage = STAGES.PHD.SECOND_SEMINAR;
-    //       break;
-    //     case STAGES.PHD.SECOND_SEMINAR:
-    //       student.currentStage = STAGES.PHD.INTERNAL_DEFENSE;
-    //       break;
-    //     case STAGES.PHD.INTERNAL_DEFENSE:
-    //       student.currentStage = STAGES.PHD.EXTERNAL_SEMINAR;
-    //       break;
-    //     case STAGES.PHD.EXTERNAL_SEMINAR:
-    //       student.currentStage = STAGES.PHD.COMPLETED;
-    //       break;
-    //     default:
-    //       throw new Error(`Invalid stage for PHD student: ${stage}`);
-    //   }
-    // } else {
-    //   throw new Error(`Unknown program: ${program}`);
-    // }
-
-    student.defenceMarked = true
-    await student.save();
+      student.defenceMarked = true
+      await student.save();
 
 
-    const allMarked = await Student.countDocuments({
-  _id: { $in: defence.students },
-  defenceMarked: false,
-}) === 0;
+        const allMarked = await Student.countDocuments({
+      _id: { $in: defence.students },
+      defenceMarked: false,
+    }) === 0;
 
-if (allMarked) {
-  defence.closedForReview = true;
-  await defence.save();
-  console.log(`Defence ${defence._id} is now closed for review`);
-}
+    if (allMarked) {
+      defence.closedForReview = true;
+      await defence.save();
+      console.log(`Defence ${defence._id} is now closed for review`);
+    }
 
-    const message = `Your project has been approved, you can proceed to prepare for next stage.`;
+      const message = `Your project has been approved, you can proceed to prepare for next stage.`;
 
-    await NotificationService.createNotifications({
-      studentIds: [studentId],
-      role: "student",
-      message,
-    });
+      await NotificationService.createNotifications({
+        studentIds: [studentId],
+        role: "student",
+        message,
+      });
 
-    return student;
+      return student;
   }
 
 
@@ -815,6 +818,10 @@ static async getDefenceForPanelMember(program: string, userId: string) {
 
   return filteredLecturers;
 }
+
+
+
+ 
 
 
 
