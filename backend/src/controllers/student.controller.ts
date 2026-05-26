@@ -110,7 +110,7 @@ export default class StudentController {
 
       res.status(200).json({ success: true, data: students });
     } catch (err: any) {
-      console.error(err);
+      console.log(err);
       res.status(400).json({ success: false, error: 'Failed to get students', message: err.message });
     }
   }

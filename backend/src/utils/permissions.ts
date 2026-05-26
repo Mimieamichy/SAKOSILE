@@ -284,6 +284,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.VIEW_NOTIFICATIONS,
     Permission.VIEW_ONE_STUDENT,
     Permission.VIEW_ALL_SESSIONS,
+    Permission.VIEW_ALL_STUDENTS,
   ],
   [Role.SUPER_ADMIN]: [
     Permission.ADD_SCHOOL,
