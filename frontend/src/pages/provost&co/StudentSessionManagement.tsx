@@ -401,13 +401,22 @@ const StudentSessionManagement = () => {
 
       const levelSeg = degreeTab === "MSc" ? "msc" : "phd";
 
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(itemsPerPage),
+      });
+
+      if (stageSeg) {
+        params.set("stage", stageSeg);
+      }
+
+      if (debouncedSearch) {
+        params.set("q", debouncedSearch);
+      }
+
       const url = `${baseUrl}/student/${levelSeg}/${encodeURIComponent(
         departmentNameLocal
-      )}/${encodeURIComponent(
-        selectedSession
-      )}?page=${page}&limit=${itemsPerPage}${
-        stageSeg ? `&stage=${encodeURIComponent(stageSeg)}` : ""
-      }${debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : ""}`;
+      )}/${encodeURIComponent(selectedSession)}?${params.toString()}`;
  console.log("url", url);
  
       try {
