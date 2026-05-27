@@ -88,6 +88,28 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 const START_KEY = getStageKey("Start");
 const COMPLETED_KEY = getStageKey("Completed");
 
+const DEGREE_STAGE_OPTIONS: Record<"MSc" | "PhD", string[]> = {
+  MSc: ["Start", "Proposal", "Internal Defense", "External", "Completed"],
+  PhD: [
+    "Start",
+    "Proposal Defense",
+    "2nd Seminar",
+    "3rd Seminar",
+    "External Defense",
+    "Completed",
+  ],
+};
+
+const getDefaultStageKeyForDegree = (degree: "MSc" | "PhD") => {
+  const preferredStage =
+    DEGREE_STAGE_OPTIONS[degree].find((stage) => {
+      const key = getStageKey(stage);
+      return key !== START_KEY && key !== COMPLETED_KEY;
+    }) ?? DEGREE_STAGE_OPTIONS[degree][0];
+
+  return getStageKey(preferredStage);
+};
+
 
 const getLabelFromKey = (key: string, labels: string[]) => {
   const found = labels.find((l) => getStageKey(l) === key);
@@ -116,18 +138,7 @@ const StudentSessionManagement = () => {
 
   const [degreeTab, setDegreeTab] = useState<"MSc" | "PhD">("MSc");
 
-  const defenseOptions = useMemo<string[]>(() => {
-    return degreeTab === "MSc"
-      ? ["Start", "Proposal", "Internal Defense", "External", "Completed"]
-      : [
-          "Start",
-          "Proposal Defense",
-          "2nd Seminar",
-          "3rd Seminar",
-          "External Defense",
-          "Completed",
-        ];
-  }, [degreeTab]);
+  const defenseOptions = useMemo<string[]>(() => DEGREE_STAGE_OPTIONS[degreeTab], [degreeTab]);
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignCollegeRepOpen, setAssignCollegeRepOpen] = useState(false);
@@ -136,7 +147,7 @@ const StudentSessionManagement = () => {
 
   const [defenseModalOpen, setDefenseModalOpen] = useState(false);
   const [defenseStage, setDefenseStage] = useState<string>(
-    isProvost ? defenseOptions[3] : defenseOptions[0]
+    getDefaultStageKeyForDegree("MSc")
   );
 
   const [selectedDepartmentForDefense, setSelectedDepartmentForDefense] =
@@ -154,13 +165,10 @@ const StudentSessionManagement = () => {
   const [studentsLoading, setStudentsLoading] = useState(false);
 
   const [selectedDefense, setSelectedDefense] = useState<string>(
-    isProvost
-      ? "all"
-      : getStageKey(defenseOptions[0])
+    getDefaultStageKeyForDegree("MSc")
   );
 
   const selectedDefenseLabel = useMemo(() => {
-    if (selectedDefense === "all") return "All Stages";
     return getLabelFromKey(selectedDefense, defenseOptions);
   }, [selectedDefense, defenseOptions]);
 
@@ -176,16 +184,12 @@ const StudentSessionManagement = () => {
   const [departmentsError, setDepartmentsError] = useState<string | null>(null);
 
   useEffect(() => {
-    const apiOptions = [...defenseOptions.map((d) => getStageKey(d)), "all"];
+    const apiOptions = defenseOptions.map((d) => getStageKey(d));
     if (!apiOptions.includes(selectedDefense)) {
-      setSelectedDefense(
-        isProvost
-          ? "all"
-          : getStageKey(defenseOptions[0])
-      );
+      setSelectedDefense(getDefaultStageKeyForDegree(degreeTab));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defenseOptions, isProvost]);
+  }, [defenseOptions, degreeTab]);
 
   // fetch faculties if provost
   useEffect(() => {
@@ -396,8 +400,8 @@ const StudentSessionManagement = () => {
         return;
       }
 
-      // Calculate stage segment for the API call
-      const stageSeg = selectedDefense === "all" ? "" : selectedDefense;
+      // Stage for the API call always follows the selected degree tab
+      const stageSeg = selectedDefense;
 
       const levelSeg = degreeTab === "MSc" ? "msc" : "phd";
 
@@ -634,8 +638,8 @@ const StudentSessionManagement = () => {
   const filteredStudents = useMemo(() => {
     let result = students;
 
-    // First filter by stage if not "all"
-    if (selectedDefense !== "all") {
+    // Keep the selected stage consistent in the current result set
+    if (selectedDefense) {
       result = result.filter((s) => s.currentStage === selectedDefense);
     }
 
@@ -664,17 +668,12 @@ const StudentSessionManagement = () => {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(
-      (search.trim() || selectedDefense !== "all"
-        ? filteredStudents.length
-        : totalStudents) / itemsPerPage
-    )
+    Math.ceil((search.trim() ? filteredStudents.length : totalStudents) / itemsPerPage)
   );
 
-  const paginated =
-    search.trim() || selectedDefense !== "all"
-      ? filteredStudents.slice((page - 1) * itemsPerPage, page * itemsPerPage)
-      : students;
+  const paginated = search.trim()
+    ? filteredStudents.slice((page - 1) * itemsPerPage, page * itemsPerPage)
+    : students;
 
   const closeDefenseModal = () => {
     setDefenseModalOpen(false);
@@ -793,7 +792,7 @@ const StudentSessionManagement = () => {
 };
 
   const defenseStudentIds = useMemo(() => {
-    if (!Array.isArray(students) || !selectedDefense || selectedDefense === "all") return [];
+    if (!Array.isArray(students) || !selectedDefense) return [];
     return students
       .filter((s) => String(s.currentStage) === String(selectedDefense))
       .map((s) => s._id ?? (s as any).id)
@@ -814,6 +813,9 @@ const StudentSessionManagement = () => {
                   key={dt}
                   onClick={() => {
                     setDegreeTab(dt);
+                    const nextStage = getDefaultStageKeyForDegree(dt);
+                    setSelectedDefense(nextStage);
+                    setDefenseStage(nextStage);
                     setPage(1);
                   }}
                   className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors duration-200 ${
@@ -856,7 +858,6 @@ const StudentSessionManagement = () => {
                 <SelectValue placeholder={selectedDefenseLabel} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Stages</SelectItem>
                 {defenseOptions.map((opt) => (
                   <SelectItem key={opt} value={getStageKey(opt)}>
                     {opt}
@@ -1042,7 +1043,7 @@ const StudentSessionManagement = () => {
         <div className="mt-4 flex items-center justify-between">
           <div />
           <div className="flex items-center gap-3">
-            {(isHod || isPgc) && selectedDefense !== "all" && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && (
+            {(isHod || isPgc) && selectedDefense !== START_KEY && selectedDefense !== COMPLETED_KEY && (
               <Button
                 className="bg-amber-700 hover:bg-amber-800 text-white"
                 onClick={() => {
