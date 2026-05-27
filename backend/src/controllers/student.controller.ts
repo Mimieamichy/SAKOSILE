@@ -108,7 +108,13 @@ export default class StudentController {
         limit
       );
 
-      res.status(200).json({ success: true, data: students });
+      res.status(200).json({ 
+        success: true, 
+        data: students.data,
+        total: students.total,
+        page: students.page,
+        limit: students.limit
+      });
     } catch (err: any) {
       console.log(err);
       res.status(400).json({ success: false, error: 'Failed to get students', message: err.message });
@@ -174,11 +180,10 @@ export default class StudentController {
       const { studentId } = req.params;
       const { matricNo, firstName, lastName, projectTopic } = req.body;
       const userId = req.user?.id || ''
-      console.log('userID', req.user)
       const role = req.user?.role[0] || ''
       const school = req.user?.school || ''
       const user = await UserService.getUserProfile(userId)
-      console.log(user)
+     
       const userName = `${user.user.title || ''} ${user.user.firstName || ''} ${user.user.lastName || ''}`;
       const updatedStudent = await StudentService.editStudent(studentId, {matricNo,firstName,lastName,projectTopic });
       const studentData = await StudentService.getOneStudent(studentId)

@@ -28,8 +28,7 @@ export function getDefaultStageScores(level: 'msc' | 'phd') {
 
 
 export default class StudentService {
-    static async addStudent(data: {
-        email: string;
+    static async addStudent(data: {email: string;
         firstName: string;
         lastName: string;
         matricNo: string;
@@ -166,12 +165,10 @@ export default class StudentService {
             department = lecturer?.department ?? 'none';
         }
 
-        const sessionId = session.toString();
-
-        const filter: any = { department, level, session: sessionId };
+        const filter: any = { department, level, session };
 
         if (stage !== undefined) {
-            filter.stage = stage;
+            filter.currentStage = stage;
         }
 
         return await paginateFormatted(Student, page, limit, filter);
